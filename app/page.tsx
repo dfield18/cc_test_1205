@@ -490,18 +490,56 @@ export default function Home() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(20,184,166,0.02),transparent_50%)] pointer-events-none"></div>
       <div className="container mx-auto px-6 py-12 max-w-7xl relative z-10">
         {/* Header */}
-        <header className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/20 mb-6">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
+        <header className="mb-8 text-center">
+          {/* Icon - Centered, square with rounded corners, light blue background */}
+          <div className="flex justify-center mb-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#34CAFF' }}>
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                {/* Credit card outline */}
+                <rect x="4" y="7" width="16" height="11" rx="1.5" stroke="currentColor" fill="none"/>
+                {/* Chip/stripe detail - horizontal rectangle near top */}
+                <rect x="7" y="9.5" width="10" height="1.5" rx="0.3" fill="currentColor"/>
+              </svg>
+            </div>
           </div>
-          <h1 className="text-5xl font-bold text-slate-900 mb-4 tracking-tight">
-            Credit Card Advisor
+          
+          {/* Title - Two colors: "Credit Card" in blue, "Advisor" in purple */}
+          <h1 className="text-4xl font-bold mb-2 tracking-tight">
+            <span style={{ color: '#34CAFF' }}>Credit Card</span>{' '}
+            <span style={{ color: '#9966FF' }}>Advisor</span>
           </h1>
-          <p className="text-lg text-slate-600 font-light max-w-2xl mx-auto">
-            Get personalized credit card recommendations powered by AI
+          
+          {/* Tagline - Two lines */}
+          <p className="text-base text-slate-600 mb-6 max-w-2xl mx-auto leading-relaxed">
+            Get personalized credit card recommendations powered by AI. Find the perfect card for your spending habits and financial goals.
           </p>
+          
+          {/* Feature boxes - Three horizontally aligned */}
+          <div className="flex justify-center gap-3 mb-0">
+            {/* AI-Powered */}
+            <div className="bg-white rounded-lg px-5 py-2.5 border border-slate-200 flex items-center gap-2.5 shadow-sm">
+              <svg className="w-5 h-5" style={{ color: '#34CAFF' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <span className="text-slate-700 font-medium text-sm">AI-Powered</span>
+            </div>
+            
+            {/* Personalized */}
+            <div className="bg-white rounded-lg px-5 py-2.5 border border-slate-200 flex items-center gap-2.5 shadow-sm">
+              <svg className="w-5 h-5" style={{ color: '#9966FF' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span className="text-slate-700 font-medium text-sm">Personalized</span>
+            </div>
+            
+            {/* Free to Use */}
+            <div className="bg-white rounded-lg px-5 py-2.5 border border-slate-200 flex items-center gap-2.5 shadow-sm">
+              <svg className="w-5 h-5" style={{ color: '#34CAFF' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span className="text-slate-700 font-medium text-sm">Free to Use</span>
+            </div>
+          </div>
         </header>
 
         {/* Two Column Layout */}
