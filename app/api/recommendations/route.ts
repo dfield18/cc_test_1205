@@ -21,9 +21,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate recommendations using RAG
+    // Generate recommendations using RAG with conversation history
     const result: RecommendationsResponse = await generateRecommendations(
-      body.message.trim()
+      body.message.trim(),
+      undefined, // topN uses default
+      body.conversationHistory // Pass conversation history
     );
     
     return NextResponse.json(result);

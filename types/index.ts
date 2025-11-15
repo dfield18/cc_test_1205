@@ -40,7 +40,17 @@ export interface Recommendation {
  */
 export interface RecommendationsResponse {
   recommendations: Recommendation[];
+  summary?: string; // Conversational summary of recommendations
   rawModelAnswer?: string;
+  title?: string; // Short 2-5 word description of what the recommendations are for
+}
+
+/**
+ * Conversation message structure
+ */
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 /**
@@ -48,5 +58,6 @@ export interface RecommendationsResponse {
  */
 export interface RecommendationsRequest {
   message: string;
+  conversationHistory?: ConversationMessage[]; // Optional conversation history
 }
 

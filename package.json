@@ -10,11 +10,13 @@
     "generate-embeddings": "tsx scripts/generateEmbeddings.ts"
   },
   "dependencies": {
+    "framer-motion": "^12.23.24",
     "next": "^14.0.0",
     "openai": "^4.20.0",
     "papaparse": "^5.4.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -128,22 +128,20 @@ export function cardToText(card: CreditCard): string {
   // Always include the card name
   parts.push(card.credit_card_name);
   
-  // Include only the most important fields for faster processing
+  // Include only the most critical fields for maximum speed
   const priorityFields = [
     'target_consumer',
     'annual_fee',
     'rewards',
     'points_multipliers',
-    'perks',
-    'intro_offer',
   ];
   
   for (const field of priorityFields) {
     if (card[field] && String(card[field]).trim()) {
       const value = String(card[field]).trim();
-      // Truncate very long values to reduce context size
-      const truncated = value.length > 200 ? value.substring(0, 200) + '...' : value;
-      parts.push(`${field}: ${truncated}`);
+      // Aggressive truncation for speed: 100 chars max
+      const truncated = value.length > 100 ? value.substring(0, 100) + '...' : value;
+      parts.push(`${field}:${truncated}`);
     }
   }
   
