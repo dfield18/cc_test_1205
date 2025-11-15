@@ -33,6 +33,12 @@ export interface Recommendation {
   credit_card_name: string;
   apply_url: string;
   reason: string;
+  intro_offer?: string;
+  application_fee?: string;
+  credit_score_needed?: string;
+  annual_fee?: string;
+  rewards_rate?: string;
+  perks?: string;
 }
 
 /**

@@ -385,15 +385,48 @@ Then recommend exactly 3 cards (the best 3). Return JSON with the formatted mark
       console.log('Original recommendations:', recommendations.map((r: any) => r.credit_card_name));
       console.log('Valid recommendations:', validRecommendations.map((r: any) => r.credit_card_name));
       
+      // Enrich recommendations with full card data
+      const enrichedRecommendations = validRecommendations.map((rec: any) => {
+        // Find the matching card from similarCards
+        const matchingCard = similarCards.find(
+          card => normalizeCardName(card.card.credit_card_name) === normalizeCardName(rec.credit_card_name)
+        );
+        
+        if (matchingCard) {
+          const card = matchingCard.card;
+          return {
+            credit_card_name: rec.credit_card_name,
+            apply_url: rec.apply_url || String(card.url_application || ''),
+            reason: rec.reason || '',
+            intro_offer: card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || '',
+            application_fee: card.application_fee || card.app_fee || '',
+            credit_score_needed: card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || '',
+            annual_fee: card.annual_fee || card.fee || '',
+            rewards_rate: card.rewards_rate || card.rewards || card.reward_rate || '',
+            perks: card.perks || card.benefits || card.card_perks || '',
+          };
+        }
+        return rec;
+      });
+      
       // Fallback: If validation filtered out all cards but we have similar cards, use them
-      let finalRecommendations = validRecommendations;
+      let finalRecommendations = enrichedRecommendations;
       if (finalRecommendations.length === 0 && similarCards.length > 0) {
         console.warn('All recommendations were filtered out. Using top similar cards as fallback.');
-        finalRecommendations = similarCards.slice(0, 3).map((cardData) => ({
-          credit_card_name: cardData.card.credit_card_name,
-          apply_url: String(cardData.card.url_application || cardData.card.url || ''),
-          reason: `This card matches your criteria based on ${cardData.card.rewards || 'its features'}.`,
-        }));
+        finalRecommendations = similarCards.slice(0, 3).map((cardData) => {
+          const card = cardData.card;
+          return {
+            credit_card_name: card.credit_card_name,
+            apply_url: String(card.url_application || card.url || ''),
+            reason: `This card matches your criteria based on ${card.rewards || 'its features'}.`,
+            intro_offer: card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || '',
+            application_fee: card.application_fee || card.app_fee || '',
+            credit_score_needed: card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || '',
+            annual_fee: card.annual_fee || card.fee || '',
+            rewards_rate: card.rewards_rate || card.rewards || card.reward_rate || '',
+            perks: card.perks || card.benefits || card.card_perks || '',
+          };
+        });
       }
       
       // Ensure we only return exactly 3 cards
