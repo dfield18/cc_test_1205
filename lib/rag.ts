@@ -273,7 +273,7 @@ export async function generateRecommendations(
     // Prompt that generates a conversational, markdown-formatted response with structured card listings
     const systemPrompt = `You MUST return valid JSON with exactly this structure:
 {
-  "summary": "A well-structured markdown-formatted response with:\n1. Personalized opening paragraph (2-3 sentences) acknowledging the user's specific question/situation, adding relevant context about why these cards fit their needs, and explaining what makes these recommendations suitable\n2. Each card listed as: • **Card Name** (as markdown link [Card Name](url)) - brief 1-2 sentence description\n3. Proper spacing between each card entry\n4. 1-2 sentence closing recap summarizing key takeaway or next step\n\nUse markdown: **bold** for emphasis, proper line breaks, bullet points (•), keep it conversational and warm. NO subheadings - go directly from opening paragraph to bullet points.",
+  "summary": "A well-structured markdown-formatted response with:\n1. Brief personalized opening (1 sentence) acknowledging the user's question\n2. Each card on a separate line as: - **Card Name** (as markdown link [Card Name](url)) - brief 1-2 sentence description\n3. Each card must be on its own line with a blank line between cards\n4. Brief closing (1 sentence) summarizing key takeaway\n\nUse markdown: **bold** for emphasis, proper line breaks, markdown list syntax (-), keep it conversational and warm. NO subheadings - go directly from opening sentence to list items. Each card MUST be on a separate line.",
   "cards": [
     {"credit_card_name": "Exact card name from candidate cards", "apply_url": "URL from candidate cards", "reason": "Brief 1-2 sentence description of why this card fits"},
     {"credit_card_name": "Another card name", "apply_url": "Another URL", "reason": "Brief description"}
@@ -285,12 +285,13 @@ CRITICAL:
 - Use EXACT card names from the candidate cards provided
 - Use EXACT URLs from the candidate cards provided
 - The summary MUST be in markdown format with:
-  1. Opening paragraph (2-3 sentences) acknowledging user's situation and context
-  2. Each card as: • **[Card Name](url)** - description (NO subheading before the cards)
-  3. Proper spacing between cards
-  4. 1-2 sentence closing recap
+  1. Opening sentence (1 sentence only) acknowledging user's situation
+  2. Each card on its own line as: - **[Card Name](url)** - description (NO subheading before the cards)
+  3. Each card must be separated by a blank line (double line break)
+  4. Closing sentence (1 sentence only)
 - Always list ALL individual cards from the cards array in the summary
-- Make it conversational, warm, and visually structured`;
+- Make it conversational, warm, and visually structured
+- CRITICAL: Each card MUST be on a separate line with proper spacing`;
 
     // Build conversation history for context
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -315,12 +316,12 @@ Candidate cards:
 ${context}
 
 Create a conversational, well-structured markdown response that:
-1. Starts with a personalized opening paragraph (2-3 sentences) acknowledging their specific question/situation, adding relevant context about why these cards fit, and explaining what makes them suitable
-2. Lists each card as: • **Card Name** (as markdown link [Card Name](url)) - 1-2 sentence description (NO subheading - go directly from opening paragraph to bullet points)
-3. Adds proper spacing between each card
-4. Ends with a 1-2 sentence recap summarizing key takeaway or next step
+1. Starts with a brief personalized opening (1 sentence only) acknowledging their question
+2. Lists each card on a separate line as: - **Card Name** (as markdown link [Card Name](url)) - 1-2 sentence description
+3. Each card MUST be on its own line with a blank line between cards (double line break)
+4. Ends with a brief closing (1 sentence only) summarizing key takeaway
 
-ALWAYS list ALL individual cards from your recommendations in the summary using the format above. Include both the card name and URL in the markdown link format.
+ALWAYS list ALL individual cards from your recommendations in the summary using the format above. Include both the card name and URL in the markdown link format. Each card MUST be on a separate line.
 
 Then recommend exactly 3 cards (the best 3). Return JSON with the formatted markdown summary.`;
     
@@ -450,32 +451,28 @@ Then recommend exactly 3 cards (the best 3). Return JSON with the formatted mark
         if (cardsInSummary < finalRecommendations.length || !hasBulletPoints) {
           console.log('Rebuilding summary to ensure all cards are displayed with proper formatting...');
           
-          // Try to extract opening paragraph from summary (first 2-3 sentences)
+          // Try to extract opening sentence from summary (first sentence only)
           const sentences = summary.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
           let openingParagraph = '';
-          if (sentences.length >= 2) {
-            openingParagraph = sentences.slice(0, 2).join('. ').trim() + '.';
-            if (sentences.length >= 3 && sentences[2].trim().length > 20) {
-              openingParagraph = sentences.slice(0, 3).join('. ').trim() + '.';
-            }
+          if (sentences.length >= 1) {
+            openingParagraph = sentences[0].trim() + '.';
           } else {
-            // Fallback: use first sentence or generate one
-            openingParagraph = sentences[0]?.trim() + '.' || 
-              `Based on your needs, here are some credit cards that could be a great fit for you.`;
+            // Fallback: generate one
+            openingParagraph = `Based on your needs, here are some credit cards that could be a great fit for you.`;
           }
           
-          // Build cards list with proper markdown formatting
+          // Build cards list with proper markdown formatting - each on separate line
           const cardsText = finalRecommendations.map(rec => 
-            `• **[${rec.credit_card_name}](${rec.apply_url})** - ${rec.reason}`
+            `- **[${rec.credit_card_name}](${rec.apply_url})** - ${rec.reason}`
           ).join('\n\n');
           
-          // Extract or generate closing recap
+          // Extract or generate closing recap (1 sentence only)
           let closingRecap = '';
-          if (sentences.length > cardsInSummary + 2) {
-            // Try to use last 1-2 sentences as closing
-            closingRecap = sentences.slice(-2).join('. ').trim() + '.';
+          if (sentences.length > cardsInSummary + 1) {
+            // Try to use last sentence as closing
+            closingRecap = sentences[sentences.length - 1].trim() + '.';
           } else {
-            closingRecap = 'Consider comparing these options based on your specific spending habits and preferences to find the best match.';
+            closingRecap = 'Consider comparing these options to find the best match.';
           }
           
           finalSummary = openingParagraph + '\n\n' + cardsText + '\n\n' + closingRecap;
