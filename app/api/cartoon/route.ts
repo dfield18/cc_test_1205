@@ -9,6 +9,21 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get already shown cartoons from query parameter
+    const { searchParams } = new URL(request.url);
+    const shownCartoonsParam = searchParams.get('shown');
+    let shownCartoons: string[] = [];
+    
+    if (shownCartoonsParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(shownCartoonsParam));
+        shownCartoons = Array.isArray(parsed) ? parsed : [];
+      } catch (parseError) {
+        console.error('Error parsing shown cartoons parameter:', parseError);
+        shownCartoons = [];
+      }
+    }
+    
     // Configuration - can be moved to environment variables
     const CARTOON_SOURCE = process.env.CARTOON_SOURCE || 'github';
     const GITHUB_REPO = process.env.CARTOON_GITHUB_REPO || 'dfield18/cartoons';
@@ -76,11 +91,20 @@ export async function GET(request: NextRequest) {
           await collectImages(fileList);
           
           if (imageFiles.length > 0) {
-            // Pick a random image
-            const randomFile = imageFiles[Math.floor(Math.random() * imageFiles.length)];
+            // Filter out already shown cartoons
+            const availableFiles = imageFiles.filter((file) => {
+              const fileUrl = file.download_url || `https://raw.githubusercontent.com/${owner}/${repo}/main/${encodeURIComponent(file.path)}`;
+              return !shownCartoons.includes(fileUrl);
+            });
+            
+            // If all cartoons have been shown, reset and use all files
+            const filesToChooseFrom = availableFiles.length > 0 ? availableFiles : imageFiles;
+            
+            // Pick a random image from available ones
+            const randomFile = filesToChooseFrom[Math.floor(Math.random() * filesToChooseFrom.length)];
             // Use download_url for raw file access (GitHub provides this in the API response)
             imageUrl = randomFile.download_url || `https://raw.githubusercontent.com/${owner}/${repo}/main/${encodeURIComponent(randomFile.path)}`;
-            console.log(`Selected cartoon: ${randomFile.name} from ${GITHUB_REPO}`);
+            console.log(`Selected cartoon: ${randomFile.name} from ${GITHUB_REPO}${availableFiles.length === 0 ? ' (all shown, resetting)' : ''}`);
           } else {
             console.warn(`No image files found in ${GITHUB_REPO}`);
             // Fallback: use a placeholder or default cartoon

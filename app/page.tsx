@@ -5,6 +5,7 @@ import { Recommendation } from '@/types';
 import SwipeToLoad from '@/components/SwipeToLoad';
 import CartoonDisplay from '@/components/CartoonDisplay';
 import ReactMarkdown from 'react-markdown';
+import { MapPin, ShoppingBag, Wallet, Trophy } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -16,7 +17,7 @@ interface Message {
 const SUGGESTED_QUESTIONS = [
   { text: 'What\'s the best card for travel?', description: 'Maximize points on flights and hotels', icon: 'travel' },
   { text: 'What\'s the best card for groceries and gas?', description: 'Earn cashback on everyday purchases', icon: 'shopping' },
-  { text: 'What are the best cards with no annual fee?', description: 'Great rewards without yearly costs', icon: 'shield' },
+  { text: 'What are the best cards with no annual fee?', description: 'Get great rewards without yearly costs', icon: 'shield' },
   { text: 'What are the best premium travel cards?', description: 'Elite perks and lounge access', icon: 'premium' },
 ];
 
@@ -27,8 +28,12 @@ export default function Home() {
   const [recommendationTitle, setRecommendationTitle] = useState('AI Recommendations');
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [currentCartoon, setCurrentCartoon] = useState<{ imageUrl: string; source?: string } | null>(null);
+  const [shownCartoons, setShownCartoons] = useState<string[]>([]);
+  const shownCartoonsRef = useRef<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitialCartoonRef = useRef(false);
+  const prevIsLoadingRef = useRef(false);
   
   // Track when recommendations change to trigger animation
   const prevRecommendationsRef = useRef<Recommendation[]>([]);
@@ -38,6 +43,11 @@ export default function Home() {
   const prevMessageCountRef = useRef(0);
   // Track previous user message count to detect new questions
   const prevUserMessageCountRef = useRef(0);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    shownCartoonsRef.current = shownCartoons;
+  }, [shownCartoons]);
   
   // Track manual scrolling in left box
   useEffect(() => {
@@ -156,15 +166,39 @@ export default function Home() {
     }
   }, [messages]);
 
-  // Fetch a cartoon on initial page load
+  // Fetch a cartoon on initial page load (only once)
   useEffect(() => {
+    if (hasInitialCartoonRef.current) return; // Already fetched initial cartoon
+    
     const fetchCartoon = async () => {
       try {
-        // Add a timestamp to ensure we get a fresh cartoon each time
-        const response = await fetch(`/api/cartoon?t=${Date.now()}`);
+        // Get current shown cartoons from ref (always has latest value)
+        const currentShown = shownCartoonsRef.current;
+        
+        // Build query parameter with shown cartoons
+        const shownParam = currentShown.length > 0 
+          ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
+          : '';
+        
+        const response = await fetch(`/api/cartoon?t=${Date.now()}${shownParam}`);
         const data = await response.json();
         if (data.imageUrl) {
-          setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+          // Double-check that this cartoon hasn't been shown (in case of race conditions)
+          const isAlreadyShown = shownCartoonsRef.current.includes(data.imageUrl);
+          if (!isAlreadyShown) {
+            // Only set the cartoon if it's not already shown
+            setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+            hasInitialCartoonRef.current = true; // Mark as fetched
+            // Add to shown cartoons using functional update to ensure we have latest state
+            setShownCartoons(prev => {
+              if (!prev.includes(data.imageUrl)) {
+                return [...prev, data.imageUrl];
+              }
+              return prev;
+            });
+          } else {
+            console.warn('Received already-shown cartoon on initial load, will not display');
+          }
         }
       } catch (error) {
         console.error('Error fetching cartoon:', error);
@@ -175,16 +209,42 @@ export default function Home() {
     fetchCartoon();
   }, []); // Empty dependency array - only run on mount
 
-  // Fetch a new cartoon when loading starts
+  // Fetch a new cartoon when loading starts (only when transitioning from false to true, and after initial load)
   useEffect(() => {
-    if (isLoading) {
+    // Only fetch if:
+    // 1. isLoading is true
+    // 2. It transitioned from false to true (not just staying true)
+    // 3. We've already done the initial fetch
+    if (isLoading && !prevIsLoadingRef.current && hasInitialCartoonRef.current) {
       const fetchCartoon = async () => {
         try {
-          // Add a timestamp to ensure we get a fresh cartoon each time
-          const response = await fetch(`/api/cartoon?t=${Date.now()}`);
+          // Get current shown cartoons from ref (always has latest value)
+          const currentShown = shownCartoonsRef.current;
+          
+          // Build query parameter with shown cartoons
+          const shownParam = currentShown.length > 0 
+            ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
+            : '';
+          
+          const response = await fetch(`/api/cartoon?t=${Date.now()}${shownParam}`);
           const data = await response.json();
           if (data.imageUrl) {
-            setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+            // Double-check that this cartoon hasn't been shown (in case of race conditions)
+            const isAlreadyShown = shownCartoonsRef.current.includes(data.imageUrl);
+            if (!isAlreadyShown) {
+              // Only set the cartoon if it's not already shown
+              setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+              // Add to shown cartoons using functional update to ensure we have latest state
+              setShownCartoons(prev => {
+                if (!prev.includes(data.imageUrl)) {
+                  return [...prev, data.imageUrl];
+                }
+                return prev;
+              });
+            } else {
+              // If it's already shown, try fetching again (but limit retries to avoid infinite loop)
+              console.warn('Received already-shown cartoon, will not display');
+            }
           }
         } catch (error) {
           console.error('Error fetching cartoon:', error);
@@ -192,7 +252,10 @@ export default function Home() {
       };
       fetchCartoon();
     }
-  }, [isLoading]);
+    
+    // Update the previous loading state
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading]); // Only depend on isLoading, use ref for shownCartoons
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -200,8 +263,7 @@ export default function Home() {
     const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
-    // Reset cartoon when starting a new search
-    setCurrentCartoon(null);
+    // Keep current cartoon visible while loading - will be replaced when new one loads
 
     // Add user message
     const newMessages: Message[] = [
@@ -343,6 +405,7 @@ export default function Home() {
     
     setInput('');
     setIsLoading(true);
+    // Keep current cartoon visible while loading - will be replaced when new one loads
 
     // Add user message
     const newMessages: Message[] = [
@@ -491,55 +554,13 @@ export default function Home() {
     
     switch (iconType) {
       case 'travel':
-        return (
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-            {/* Main fuselage - longer horizontal body */}
-            <rect x="2" y="11" width="20" height="3" rx="1.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" />
-            {/* Nose cone - pointed front extending to edge */}
-            <path d="M22 12.5 L23.5 11.8 L23.5 13.2 L22 12.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Left wing - extends almost to left edge */}
-            <path d="M8 12.5 L0.5 12.5 L1 7 L7.5 12.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Right wing - extends almost to right edge */}
-            <path d="M16 12.5 L23.5 12.5 L23 7 L16.5 12.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Left winglet - upward tip at edge */}
-            <path d="M0.5 12.5 L0.5 9.5 L1 9.5 L1 12.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Right winglet - upward tip at edge */}
-            <path d="M23.5 12.5 L23.5 9.5 L23 9.5 L23 12.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Vertical tail fin - extends higher */}
-            <path d="M2 11 L2 2 L4 2 L4 11 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Horizontal tail stabilizer - extends further */}
-            <path d="M2.5 14 L0.5 16 L0.5 17 L2.5 14.5 Z" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.5" strokeLinejoin="round" />
-            {/* Engines under wings - left, positioned further out */}
-            <ellipse cx="3.5" cy="15.5" rx="1" ry="0.8" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.2" />
-            {/* Engines under wings - right, positioned further out */}
-            <ellipse cx="20.5" cy="15.5" rx="1" ry="0.8" fill="#E0F7FA" stroke={iconColor} strokeWidth="1.2" />
-            {/* Passenger windows - spread across longer fuselage */}
-            <circle cx="5" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-            <circle cx="8" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-            <circle cx="11" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-            <circle cx="14" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-            <circle cx="17" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-            <circle cx="20" cy="12.5" r="0.5" fill="#E0F7FA" stroke={iconColor} strokeWidth="0.8" />
-          </svg>
-        );
+        return <MapPin className="w-5 h-5" color={iconColor} strokeWidth={2} />;
       case 'shopping':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke={iconColor} viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        );
+        return <ShoppingBag className="w-5 h-5" color={iconColor} strokeWidth={2} />;
       case 'shield':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke={iconColor} viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-        );
+        return <Wallet className="w-5 h-5" color={iconColor} strokeWidth={2} />;
       case 'premium':
-        return (
-          <svg className="w-5 h-5" fill="none" stroke={iconColor} viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        );
+        return <Trophy className="w-5 h-5" color={iconColor} strokeWidth={2} />;
       default:
         return null;
     }
@@ -584,7 +605,7 @@ export default function Home() {
       
       <div className={`container mx-auto px-6 max-w-7xl relative z-10 ${messages.length > 0 ? 'py-4 md:py-6' : 'py-12'}`}>
         {/* Hero Section */}
-        <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-4 md:py-6 mb-2' : 'py-16 md:py-24 mb-10'}`}>
+        <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-4 md:py-6 mb-2' : 'py-16 md:py-24 mb-6'}`}>
           {/* Hero content */}
           <div className="relative z-10 max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight">
@@ -599,7 +620,8 @@ export default function Home() {
             
             {messages.length === 0 && (
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Get personalized credit card recommendations powered by AI. Find the perfect card for your spending habits and financial goals.
+                Get personalized credit card recommendations powered by AI.<br />
+                Find the perfect card for your spending habits and financial goals.
               </p>
             )}
           </div>
@@ -640,13 +662,13 @@ export default function Home() {
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
           <div className="max-w-6xl mx-auto mb-10">
-            <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="flex items-center justify-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#34CAFF' }}>
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold text-slate-900">Popular Questions</h3>
+              <h3 className="text-3xl font-bold text-slate-900">Popular Questions</h3>
             </div>
             <div className="flex justify-center gap-4">
               {SUGGESTED_QUESTIONS.map((question, index) => (
@@ -660,10 +682,10 @@ export default function Home() {
                       {renderSuggestedIcon(question.icon)}
                     </div>
                     <div className="flex-1 min-w-0 w-full">
-                      <h3 className="font-semibold text-slate-800 mb-1 text-sm leading-tight">
+                      <h3 className="font-bold text-slate-800 mb-1 text-lg leading-tight">
                         {question.text}
                       </h3>
-                      <p className="text-xs text-slate-600 leading-snug">
+                      <p className="text-base text-muted-foreground leading-snug">
                         {question.description}
                       </p>
                     </div>
