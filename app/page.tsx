@@ -5,7 +5,7 @@ import { Recommendation } from '@/types';
 import SwipeToLoad from '@/components/SwipeToLoad';
 import CartoonDisplay from '@/components/CartoonDisplay';
 import ReactMarkdown from 'react-markdown';
-import { MapPin, ShoppingBag, Wallet, Trophy } from 'lucide-react';
+import { Plane, ShoppingCart, Shield, User, Sparkles } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -216,7 +216,10 @@ export default function Home() {
     // 2. It transitioned from false to true (not just staying true)
     // 3. We've already done the initial fetch
     if (isLoading && !prevIsLoadingRef.current && hasInitialCartoonRef.current) {
-      const fetchCartoon = async () => {
+      // Clear the current cartoon immediately so old one doesn't show while new one loads
+      setCurrentCartoon(null);
+      
+      const fetchCartoon = async (retryCount = 0) => {
         try {
           // Get current shown cartoons from ref (always has latest value)
           const currentShown = shownCartoonsRef.current;
@@ -242,12 +245,28 @@ export default function Home() {
                 return prev;
               });
             } else {
-              // If it's already shown, try fetching again (but limit retries to avoid infinite loop)
-              console.warn('Received already-shown cartoon, will not display');
+              // If it's already shown and we haven't retried too many times, try again
+              if (retryCount < 3) {
+                console.warn('Received already-shown cartoon, retrying...');
+                // Wait a bit before retrying to avoid rapid requests
+                setTimeout(() => fetchCartoon(retryCount + 1), 100);
+              } else {
+                console.warn('Received already-shown cartoon after retries, will not display');
+              }
+            }
+          } else {
+            // If no imageUrl in response, retry if we haven't exceeded retry limit
+            if (retryCount < 3) {
+              console.warn('No imageUrl in response, retrying...');
+              setTimeout(() => fetchCartoon(retryCount + 1), 100);
             }
           }
         } catch (error) {
           console.error('Error fetching cartoon:', error);
+          // Retry on error if we haven't exceeded retry limit
+          if (retryCount < 3) {
+            setTimeout(() => fetchCartoon(retryCount + 1), 200);
+          }
         }
       };
       fetchCartoon();
@@ -263,7 +282,6 @@ export default function Home() {
     const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
-    // Keep current cartoon visible while loading - will be replaced when new one loads
 
     // Add user message
     const newMessages: Message[] = [
@@ -405,7 +423,6 @@ export default function Home() {
     
     setInput('');
     setIsLoading(true);
-    // Keep current cartoon visible while loading - will be replaced when new one loads
 
     // Add user message
     const newMessages: Message[] = [
@@ -554,13 +571,13 @@ export default function Home() {
     
     switch (iconType) {
       case 'travel':
-        return <MapPin className="w-5 h-5" color={iconColor} strokeWidth={2} />;
+        return <Plane className="h-6 w-6" color={iconColor} strokeWidth={2} />;
       case 'shopping':
-        return <ShoppingBag className="w-5 h-5" color={iconColor} strokeWidth={2} />;
+        return <ShoppingCart className="h-6 w-6" color={iconColor} strokeWidth={2} />;
       case 'shield':
-        return <Wallet className="w-5 h-5" color={iconColor} strokeWidth={2} />;
+        return <Shield className="h-6 w-6" color={iconColor} strokeWidth={2} />;
       case 'premium':
-        return <Trophy className="w-5 h-5" color={iconColor} strokeWidth={2} />;
+        return <User className="h-6 w-6" color={iconColor} strokeWidth={2} />;
       default:
         return null;
     }
@@ -662,27 +679,25 @@ export default function Home() {
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
           <div className="max-w-6xl mx-auto mb-10">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#34CAFF' }}>
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+            <div className="flex items-center justify-center gap-2 mb-8">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary">
+                <Sparkles className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
-              <h3 className="text-3xl font-bold text-slate-900">Popular Questions</h3>
+              <h3 className="text-3xl font-bold text-foreground">Popular Questions</h3>
             </div>
-            <div className="flex justify-center gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
               {SUGGESTED_QUESTIONS.map((question, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestedQuestion(question.text)}
-                  className="bg-white rounded-xl p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex-1 max-w-[240px]"
+                  className="bg-white rounded-xl p-6 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 min-h-[200px] flex flex-col"
                 >
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#E0F7FA' }}>
+                  <div className="flex flex-col items-center text-center gap-4 flex-1">
+                    <div className="flex-shrink-0 rounded-full bg-primary/10 p-4 flex items-center justify-center">
                       {renderSuggestedIcon(question.icon)}
                     </div>
-                    <div className="flex-1 min-w-0 w-full">
-                      <h3 className="font-bold text-slate-800 mb-1 text-lg leading-tight">
+                    <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
+                      <h3 className="font-bold text-foreground mb-2 text-lg leading-tight">
                         {question.text}
                       </h3>
                       <p className="text-base text-muted-foreground leading-snug">
@@ -995,9 +1010,6 @@ export default function Home() {
                                 }}
                               />
                             </div>
-                            <p className="text-xs text-slate-500 mt-3 text-center font-light">
-                              Cartoon of the moment
-                            </p>
                           </div>
                         )}
                       </div>
@@ -1027,9 +1039,6 @@ export default function Home() {
                                 }}
                               />
                             </div>
-                            <p className="text-xs text-slate-500 mt-3 text-center font-light">
-                              Cartoon of the moment
-                            </p>
                           </div>
                         )}
                       </div>
@@ -1127,9 +1136,6 @@ export default function Home() {
                               }}
                             />
                           </div>
-                          <p className="text-xs text-slate-500 mt-3 text-center font-light">
-                            Cartoon of the moment
-                          </p>
                         </div>
                       )}
                     </>

@@ -81,9 +81,6 @@ export default function CartoonDisplay() {
           }}
         />
       </div>
-      <p className="text-xs text-gray-500 mt-2 text-center">
-        Cartoon of the moment
-      </p>
     </div>
   );
 }
