@@ -595,15 +595,15 @@ export default function Home() {
     
     switch (iconType) {
       case 'travel':
-        return <Plane className="h-5 w-5" color={iconColor} strokeWidth={2} />;
+        return <Plane className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
       case 'shopping':
-        return <ShoppingCart className="h-5 w-5" color={iconColor} strokeWidth={2} />;
+        return <ShoppingCart className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
       case 'shield':
-        return <Shield className="h-5 w-5" color={iconColor} strokeWidth={2} />;
+        return <Shield className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
       case 'creditcard':
-        return <CreditCard className="h-5 w-5" color={iconColor} strokeWidth={2} />;
+        return <CreditCard className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
       case 'premium':
-        return <User className="h-5 w-5" color={iconColor} strokeWidth={2} />;
+        return <User className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
       default:
         return null;
     }
@@ -646,12 +646,12 @@ export default function Home() {
         <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full blur-3xl"></div>
       </div>
       
-      <div className={`container mx-auto px-6 max-w-7xl relative z-10 ${messages.length > 0 ? 'py-4 md:py-6' : 'py-6 md:py-8'}`}>
+      <div className={`container mx-auto px-4 lg:px-6 max-w-7xl relative z-10 ${messages.length > 0 ? 'py-4 md:py-6' : 'py-6 md:py-8'}`}>
         {/* Hero Section */}
         <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-4 md:py-6 mb-2' : 'py-2 md:py-4 mb-4'}`}>
           {/* Hero content */}
           <div className="relative z-10 max-w-3xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-3 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 tracking-tight">
               <span className="bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
                 Find Your Perfect
               </span>
@@ -662,7 +662,7 @@ export default function Home() {
             </h1>
             
             {messages.length === 0 && (
-              <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
                 Get personalized credit card recommendations powered by AI.<br />
                 Find the perfect card for your spending habits and financial goals.
               </p>
@@ -673,29 +673,29 @@ export default function Home() {
         {/* Header - Feature boxes - Only show after user asks a question */}
         {messages.length > 0 && (
           <header className="mb-3 text-center">
-            <div className="flex justify-center gap-3 mb-4">
+            <div className="flex flex-wrap justify-center gap-3 mb-4">
               {/* AI-Powered */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 lg:px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
+                <svg className="h-5 w-5 lg:h-5 lg:w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                 </svg>
-                <span className="text-slate-700 font-medium text-sm">AI-Powered</span>
+                <span className="text-slate-700 font-medium text-xs lg:text-sm">AI-Powered</span>
               </div>
               
               {/* Personalized */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 lg:px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
+                <svg className="h-5 w-5 lg:h-5 lg:w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
-                <span className="text-slate-700 font-medium text-sm">Personalized</span>
+                <span className="text-slate-700 font-medium text-xs lg:text-sm">Personalized</span>
               </div>
               
               {/* Free to Use */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
-                <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 lg:px-5 py-2.5 border border-slate-200/60 flex items-center gap-2.5 shadow-sm">
+                <svg className="h-5 w-5 lg:h-5 lg:w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span className="text-slate-700 font-medium text-sm">Free to Use</span>
+                <span className="text-slate-700 font-medium text-xs lg:text-sm">Free to Use</span>
               </div>
             </div>
           </header>
@@ -704,26 +704,26 @@ export default function Home() {
 
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-6xl mx-auto mt-24 md:mt-32 mb-12">
+          <div className="max-w-6xl mx-auto mt-32 md:mt-40 mb-12">
             <div className="flex items-center justify-center gap-2 mb-5">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary">
-                <Sparkles className="w-5 h-5 text-white" strokeWidth={2} />
+                <Sparkles className="h-5 w-5 text-white" strokeWidth={2} />
               </div>
               <h3 className="text-2xl md:text-3xl font-bold text-foreground">Popular Questions</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-3 max-w-5xl mx-auto">
               {SUGGESTED_QUESTIONS.map((question, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestedQuestion(question.text)}
-                  className="bg-white rounded-xl p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 min-h-[140px] flex flex-col"
+                  className="bg-white rounded-xl p-4 lg:p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 min-h-[140px] flex flex-col"
                 >
-                  <div className="flex flex-col items-center text-center gap-2 flex-1">
+                    <div className="flex flex-col items-center text-center gap-2 flex-1">
                     <div className="flex-shrink-0 rounded-full bg-primary/10 p-2 flex items-center justify-center">
                       {renderSuggestedIcon(question.icon)}
                     </div>
                     <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
-                      <h3 className="font-bold text-foreground mb-1.5 text-sm md:text-base leading-tight">
+                      <h3 className="font-bold text-foreground mb-1.5 text-sm lg:text-base leading-tight">
                         {question.text}
                       </h3>
                       <p className="text-xs md:text-sm text-muted-foreground leading-snug">
@@ -739,28 +739,28 @@ export default function Home() {
 
         {/* Input Field at Bottom - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-2xl mx-auto mt-16 mb-4">
-            <div className="flex gap-3">
+          <div className="max-w-2xl mx-auto mt-32 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about credit cards, rewards, travel perks..."
-                className="flex-1 px-5 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white/90 backdrop-blur-sm shadow-sm transition-all"
+                className="flex-1 px-5 h-12 lg:py-3 lg:h-auto border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base lg:text-sm bg-white/90 backdrop-blur-sm shadow-sm transition-all"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSend}
                 disabled={isLoading || !input.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                className="w-full sm:w-auto px-6 h-12 lg:py-3 lg:h-auto bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all text-base lg:text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
             </div>
-            <div className="mt-2 text-center text-xs text-slate-500 space-x-4">
+            <div className="mt-2 text-center text-xs lg:text-xs text-slate-500 flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center lg:space-x-4">
               <span>✓ Enter to send</span>
               <span>✨ Instant AI recommendations</span>
             </div>
@@ -769,10 +769,10 @@ export default function Home() {
 
         {/* Two Column Layout - Only show when there are messages */}
         {messages.length > 0 && (
-        <div className={`grid gap-6 mb-6 ${messages.some(msg => msg.role === 'user') ? 'grid-cols-5' : 'grid-cols-1 max-w-2xl mx-auto'}`} style={{ height: messages.some(msg => msg.role === 'user') ? '700px' : '500px', maxHeight: messages.some(msg => msg.role === 'user') ? '700px' : '500px', overflow: 'hidden' }}>
+        <div className={`grid gap-6 mb-6 mt-12 ${messages.some(msg => msg.role === 'user') ? 'grid-cols-1 lg:grid-cols-5' : 'grid-cols-1 max-w-2xl mx-auto'} ${messages.some(msg => msg.role === 'user') ? 'lg:h-[700px]' : 'h-[500px]'}`} style={{ overflow: 'hidden' }}>
           {/* Left Column - Chatbot */}
-          <div className={`${messages.some(msg => msg.role === 'user') ? 'col-span-2' : 'col-span-1'} flex flex-col`} style={{ height: messages.some(msg => msg.role === 'user') ? '700px' : '500px', maxHeight: messages.some(msg => msg.role === 'user') ? '700px' : '500px', overflow: 'hidden' }}>
-            <div className={`bg-white rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/60 h-full flex flex-col backdrop-blur-sm bg-gradient-to-br from-white to-slate-50/50 ${messages.some(msg => msg.role === 'user') ? 'p-4 md:p-8' : 'p-4 md:p-6'}`} style={{ maxHeight: '100%', overflow: 'hidden' }}>
+          <div className={`${messages.some(msg => msg.role === 'user') ? 'lg:col-span-2' : 'col-span-1'} flex flex-col ${messages.some(msg => msg.role === 'user') ? 'lg:h-[700px]' : 'h-[500px]'}`} style={{ overflow: 'hidden' }}>
+            <div className={`bg-white rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/60 h-full flex flex-col backdrop-blur-sm bg-gradient-to-br from-white to-slate-50/50 ${messages.some(msg => msg.role === 'user') ? 'p-4 lg:p-8' : 'p-4 md:p-6'}`} style={{ maxHeight: '100%', overflow: 'hidden' }}>
               <div className={`${messages.some(msg => msg.role === 'user') ? 'mb-6 pb-4' : 'mb-4 pb-3'} border-b border-slate-200 flex-shrink-0`}>
                 <h3 className={`${messages.some(msg => msg.role === 'user') ? 'text-xl' : 'text-lg'} font-semibold text-slate-900 mb-1`}>Your Questions</h3>
                 <p className="text-sm text-slate-500 font-light">Ask me anything about credit cards</p>
@@ -854,7 +854,7 @@ export default function Home() {
                                         key={idx}
                                         onClick={() => handleSuggestedQuestion(suggestion)}
                                         disabled={isLoading}
-                                        className="border border-teal-600 text-teal-600 rounded-full px-4 py-2 text-sm font-medium hover:bg-teal-50 focus:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="border border-teal-600 text-teal-600 rounded-full px-4 py-3 h-12 md:h-auto text-base md:text-sm font-medium hover:bg-teal-50 focus:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
                                         {suggestion}
                                       </button>
@@ -950,14 +950,14 @@ export default function Home() {
                   {/* Dynamic Suggested Questions - After most recent answer */}
                   {dynamicSuggestions.length > 0 && messages.length > 0 && !isLoading && (
                     <div className="mt-6 pt-6 border-t border-slate-200">
-                      <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wide">You might also ask:</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <p className="text-xs md:text-sm text-slate-500 mb-4 font-semibold uppercase tracking-wide">You might also ask:</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {dynamicSuggestions.slice(0, 4).map((suggestion, index) => (
                           <button
                             key={index}
                             onClick={() => handleSuggestedQuestion(suggestion)}
                             disabled={isLoading}
-                            className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 hover:border-teal-300 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group"
+                            className="px-4 py-3 h-12 md:h-auto bg-white border border-slate-200 rounded-xl text-base md:text-sm text-slate-700 hover:bg-slate-50 hover:border-teal-300 hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                           >
                             <span className="text-lg group-hover:scale-110 transition-transform">{getSuggestionIcon(suggestion)}</span>
                             <span className="text-left flex-1 font-medium">{suggestion}</span>
@@ -972,20 +972,20 @@ export default function Home() {
             </div>
             
             {/* Input Area */}
-            <div className={`flex gap-3 mt-auto border-t border-slate-200 flex-shrink-0 ${messages.some(msg => msg.role === 'user') ? 'pt-4 md:pt-6' : 'pt-3 md:pt-4'}`}>
+            <div className={`flex flex-col sm:flex-row gap-3 mt-auto border-t border-slate-200 flex-shrink-0 ${messages.some(msg => msg.role === 'user') ? 'pt-4 md:pt-6' : 'pt-3 md:pt-4'}`}>
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask about credit cards..."
-                  className="flex-1 px-4 md:px-5 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm bg-white shadow-sm transition-all duration-200"
+                  className="flex-1 px-4 md:px-5 h-12 lg:py-3 lg:h-auto border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base lg:text-sm bg-white shadow-sm transition-all duration-200"
                   disabled={isLoading}
                 />
                 <button
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
-                  className="px-5 md:px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                  className="w-full sm:w-auto px-5 md:px-6 h-12 lg:py-3 lg:h-auto bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 text-base lg:text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -997,17 +997,17 @@ export default function Home() {
 
           {/* Right Column - Credit Card Recommendations - Only show after a question is asked */}
           {messages.some(msg => msg.role === 'user') && (
-          <div className="col-span-3 flex flex-col" style={{ height: '700px', maxHeight: '700px', overflow: 'hidden' }}>
-            <div className="bg-white rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/60 p-8 h-full flex flex-col backdrop-blur-sm bg-gradient-to-br from-white to-slate-50/50" style={{ maxHeight: '100%', overflow: 'hidden' }}>
-              <div className="flex items-center gap-3 mb-8 flex-shrink-0">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="lg:col-span-3 flex flex-col lg:h-[700px]" style={{ overflow: 'hidden' }}>
+            <div className="bg-white rounded-2xl shadow-2xl shadow-slate-300/40 border border-slate-200/60 p-4 lg:p-8 h-full flex flex-col backdrop-blur-sm bg-gradient-to-br from-white to-slate-50/50" style={{ maxHeight: '100%', overflow: 'hidden' }}>
+              <div className="flex items-center gap-3 mb-6 lg:mb-8 flex-shrink-0">
+                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                  <svg className="w-5 h-5 lg:w-6 lg:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">{recommendationTitle || 'Top Bank Cards'}</h2>
-                  <p className="text-sm text-slate-500 font-light">Personalized recommendations for you</p>
+                  <h2 className="text-xl lg:text-2xl font-bold text-slate-900">{recommendationTitle || 'Top Bank Cards'}</h2>
+                  <p className="text-xs lg:text-sm text-slate-500 font-light">Personalized recommendations for you</p>
                 </div>
               </div>
 
@@ -1118,14 +1118,14 @@ export default function Home() {
 
                   return (
                     <>
-                      <div className="grid grid-cols-3 gap-5 mb-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
                         {mostRecentAssistantMessage.recommendations.slice(0, 4).map((rec, recIndex) => (
                           <div
                             key={recIndex}
-                            className="bg-gradient-to-br from-white via-white to-slate-50/30 rounded-xl border border-slate-200/80 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-teal-200/30 transition-all duration-300 p-6 flex flex-col group hover:border-teal-300/60 hover:-translate-y-1"
+                            className="bg-gradient-to-br from-white via-white to-slate-50/30 rounded-xl border border-slate-200/80 shadow-lg shadow-slate-200/50 hover:shadow-xl hover:shadow-teal-200/30 transition-all duration-300 p-4 lg:p-6 flex flex-col group hover:border-teal-300/60 hover:-translate-y-1"
                           >
                             {/* Card Name */}
-                            <h3 className="font-semibold text-lg text-slate-900 mb-3 leading-tight">
+                            <h3 className="font-semibold text-base lg:text-lg text-slate-900 mb-3 leading-tight">
                               {rec.credit_card_name}
                             </h3>
                             
@@ -1183,7 +1183,7 @@ export default function Home() {
                                 href={rec.apply_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="mt-auto w-full text-center px-5 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-sm font-semibold rounded-xl hover:from-teal-700 hover:to-cyan-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-500/40 hover:shadow-xl hover:shadow-teal-500/50 group-hover:scale-[1.02]"
+                                className="mt-auto w-full text-center px-5 py-3 h-12 lg:h-auto bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-base lg:text-sm font-semibold rounded-xl hover:from-teal-700 hover:to-cyan-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-500/40 hover:shadow-xl hover:shadow-teal-500/50 group-hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                               >
                                 Apply Now
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
