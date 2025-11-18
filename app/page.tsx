@@ -14,9 +14,21 @@ interface Message {
   summary?: string; // Summary with card links for user messages
 }
 
-const SUGGESTED_QUESTIONS = [
+type SuggestedQuestion = {
+  text: string;
+  description: string;
+  icon: string;
+  mobileText?: string;
+};
+
+const SUGGESTED_QUESTIONS: SuggestedQuestion[] = [
   { text: 'What\'s the best card for travel?', description: 'Maximize points on flights and hotels', icon: 'travel' },
-  { text: 'How can I earn cash back on everyday purchases', description: 'Earn cashback on everyday purchases', icon: 'shopping' },
+  { 
+    text: 'How can I earn cash back on everyday purchases', 
+    mobileText: 'How can I earn cash back?', 
+    description: 'Earn cashback on everyday purchases', 
+    icon: 'shopping' 
+  },
   { text: 'Show the best cards with no annual fee', description: 'Get great rewards without yearly costs', icon: 'creditcard' },
   { text: 'Recommend luxury travel credit cards?', description: 'Elite perks and lounge access', icon: 'premium' },
 ];
@@ -39,9 +51,11 @@ export default function Home() {
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [currentCartoon, setCurrentCartoon] = useState<{ imageUrl: string; source?: string } | null>(null);
   const [shownCartoons, setShownCartoons] = useState<string[]>([]);
+  const [carouselIndex, setCarouselIndex] = useState(0);
   const shownCartoonsRef = useRef<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
   const hasInitialCartoonRef = useRef(false);
   const prevIsLoadingRef = useRef(false);
   
@@ -73,6 +87,23 @@ export default function Home() {
 
     leftBox.addEventListener('scroll', handleScroll);
     return () => leftBox.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Handle carousel scroll on mobile
+  useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    const handleScroll = () => {
+      const scrollLeft = carousel.scrollLeft;
+      const cardWidth = 280; // Fixed card width
+      const gap = 12; // gap-3 = 12px
+      const newIndex = Math.round(scrollLeft / (cardWidth + gap));
+      setCarouselIndex(Math.min(newIndex, SUGGESTED_QUESTIONS.length - 1));
+    };
+
+    carousel.addEventListener('scroll', handleScroll);
+    return () => carousel.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
@@ -582,7 +613,7 @@ export default function Home() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -590,20 +621,22 @@ export default function Home() {
   };
 
   // Helper function to render icon SVG for suggested questions
-  const renderSuggestedIcon = (iconType: string) => {
-    const iconColor = '#34CAFF';
+  const renderSuggestedIcon = (iconType: string, size: string = 'h-4 w-4 lg:h-5 lg:w-5', useThemeColor: boolean = false) => {
+    // Use primary color from theme (#34CAFF) when useThemeColor is true, otherwise use the hardcoded color
+    const iconColor = '#34CAFF'; // Primary color from theme
+    const className = size;
     
     switch (iconType) {
       case 'travel':
-        return <Plane className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
+        return <Plane className={className} color={iconColor} strokeWidth={2} />;
       case 'shopping':
-        return <ShoppingCart className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
+        return <ShoppingCart className={className} color={iconColor} strokeWidth={2} />;
       case 'shield':
-        return <Shield className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
+        return <Shield className={className} color={iconColor} strokeWidth={2} />;
       case 'creditcard':
-        return <CreditCard className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
+        return <CreditCard className={className} color={iconColor} strokeWidth={2} />;
       case 'premium':
-        return <User className="h-6 w-6 lg:h-5 lg:w-5" color={iconColor} strokeWidth={2} />;
+        return <User className={className} color={iconColor} strokeWidth={2} />;
       default:
         return null;
     }
@@ -662,7 +695,7 @@ export default function Home() {
             </h1>
             
             {messages.length === 0 && (
-              <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              <p className="text-sm lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-tight lg:leading-relaxed">
                 Get personalized credit card recommendations powered by AI.<br />
                 Find the perfect card for your spending habits and financial goals.
               </p>
@@ -704,29 +737,79 @@ export default function Home() {
 
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-6xl mx-auto mt-32 md:mt-40 mb-12">
-            <div className="flex items-center justify-center gap-2 mb-5">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary">
-                <Sparkles className="h-5 w-5 text-white" strokeWidth={2} />
+          <div className="max-w-6xl mx-auto mt-16 lg:mt-32 md:mt-40 mb-12">
+            <div className="flex items-center justify-center gap-2 mb-3 lg:mb-5">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center bg-primary">
+                <Sparkles className="h-4 w-4 lg:h-5 lg:w-5 text-white" strokeWidth={2} />
               </div>
-              <h3 className="text-2xl md:text-3xl font-bold text-foreground">Popular Questions</h3>
+              <h3 className="text-xl lg:text-2xl md:text-3xl font-bold text-foreground">Popular Questions</h3>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-3 max-w-5xl mx-auto">
+            {/* Mobile Carousel */}
+            <div className="lg:hidden">
+              <div 
+                ref={carouselRef}
+                className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-4 -mx-4"
+              >
+                {SUGGESTED_QUESTIONS.map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestedQuestion(question.text)}
+                    className="bg-white rounded-xl p-2.5 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 h-[240px] w-[280px] flex-shrink-0 snap-center flex flex-col"
+                  >
+                    <div className="flex flex-col items-center text-center space-y-4 flex-1 justify-center">
+                      <div className="rounded-full bg-primary/10 p-4 min-w-[56px] min-h-[56px] flex items-center justify-center">
+                        {renderSuggestedIcon(question.icon, 'w-7 h-7', true)}
+                      </div>
+                      <h3 className="font-semibold text-base text-card-foreground leading-tight">
+                        {question.mobileText || question.text}
+                      </h3>
+                      <p className="text-base md:text-sm text-muted-foreground leading-relaxed">
+                        {question.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {/* Carousel Indicators */}
+              <div className="flex justify-center gap-2 mt-4">
+                {SUGGESTED_QUESTIONS.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      if (carouselRef.current) {
+                        const cardWidth = 280; // Fixed card width
+                        const gap = 12; // gap-3 = 12px
+                        carouselRef.current.scrollTo({
+                          left: index * (cardWidth + gap),
+                          behavior: 'smooth'
+                        });
+                      }
+                    }}
+                    className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                      index === carouselIndex ? 'bg-primary w-6' : 'bg-slate-300'
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* Desktop Grid */}
+            <div className="hidden lg:grid grid-cols-4 gap-3 max-w-5xl mx-auto">
               {SUGGESTED_QUESTIONS.map((question, index) => (
                 <button
                   key={index}
                   onClick={() => handleSuggestedQuestion(question.text)}
-                  className="bg-white rounded-xl p-4 lg:p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 min-h-[140px] flex flex-col"
+                  className="bg-white rounded-xl p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 min-h-[140px] flex flex-col"
                 >
-                    <div className="flex flex-col items-center text-center gap-2 flex-1">
+                  <div className="flex flex-col items-center text-center gap-2 flex-1">
                     <div className="flex-shrink-0 rounded-full bg-primary/10 p-2 flex items-center justify-center">
                       {renderSuggestedIcon(question.icon)}
                     </div>
                     <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
-                      <h3 className="font-bold text-foreground mb-1.5 text-sm lg:text-base leading-tight">
+                      <h3 className="font-bold text-foreground mb-1.5 text-sm leading-tight">
                         {question.text}
                       </h3>
-                      <p className="text-xs md:text-sm text-muted-foreground leading-snug">
+                      <p className="text-xs text-muted-foreground leading-snug">
                         {question.description}
                       </p>
                     </div>
@@ -739,21 +822,32 @@ export default function Home() {
 
         {/* Input Field at Bottom - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-2xl mx-auto mt-32 mb-4">
+          <div className="max-w-2xl mx-auto mt-[6.192rem] lg:mt-32 mb-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask about credit cards, rewards, travel perks..."
-                className="flex-1 px-5 h-12 lg:py-3 lg:h-auto border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base lg:text-sm bg-white/90 backdrop-blur-sm shadow-sm transition-all"
-                disabled={isLoading}
-              />
+              <div className="flex-1 relative lg:static">
+                <textarea
+                  rows={1}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Ask about credit cards, rewards, travel perks..."
+                  className="w-full min-h-[56px] lg:h-10 pt-2 pb-7 lg:py-6 px-3 pr-16 lg:pr-24 text-base border border-input rounded-md shadow-card bg-card text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all resize-none"
+                  disabled={isLoading}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={isLoading || !input.trim()}
+                  className="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 min-w-[48px] min-h-[48px] bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all flex items-center justify-center shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
               <button
                 onClick={handleSend}
                 disabled={isLoading || !input.trim()}
-                className="w-full sm:w-auto px-6 h-12 lg:py-3 lg:h-auto bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all text-base lg:text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="hidden lg:flex px-6 h-auto py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -928,19 +1022,19 @@ export default function Home() {
                       );
                     })}
                   {isLoading && (
-                    <div className="flex items-start gap-3 mb-6 max-w-2xl mx-auto">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shadow-sm">
-                        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-start gap-3 lg:gap-3 mb-6 max-w-2xl mx-auto">
+                      <div className="flex-shrink-0 w-10 h-10 lg:w-8 lg:h-8 rounded-full bg-gray-100 flex items-center justify-center shadow-sm">
+                        <svg className="w-5 h-5 lg:w-4 lg:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
                       </div>
-                      <div className="bg-gray-50 rounded-xl p-4 px-5 shadow-sm">
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-600 text-[15px] font-medium">Thinking</span>
-                          <div className="flex gap-1 ml-2">
-                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <div className="bg-gray-50 rounded-xl p-5 px-6 lg:p-4 lg:px-5 shadow-sm">
+                        <div className="flex items-center gap-1.5 lg:gap-1">
+                          <span className="text-slate-600 text-base lg:text-[15px] font-medium">Thinking</span>
+                          <div className="flex gap-1.5 lg:gap-1 ml-2">
+                            <div className="w-2 h-2 lg:w-1.5 lg:h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 lg:w-1.5 lg:h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 lg:w-1.5 lg:h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                           </div>
                         </div>
                       </div>
@@ -973,19 +1067,30 @@ export default function Home() {
             
             {/* Input Area */}
             <div className={`flex flex-col sm:flex-row gap-3 mt-auto border-t border-slate-200 flex-shrink-0 ${messages.some(msg => msg.role === 'user') ? 'pt-4 md:pt-6' : 'pt-3 md:pt-4'}`}>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask about credit cards..."
-                  className="flex-1 px-4 md:px-5 h-12 lg:py-3 lg:h-auto border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base lg:text-sm bg-white shadow-sm transition-all duration-200"
-                  disabled={isLoading}
-                />
+                <div className="flex-1 relative lg:static">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask about credit cards..."
+                    className="w-full min-h-[56px] h-10 py-7 lg:py-6 px-3 pr-16 lg:pr-24 text-base border border-input rounded-md shadow-card bg-card text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all duration-200"
+                    disabled={isLoading}
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={isLoading || !input.trim()}
+                    className="lg:hidden absolute right-2 top-1/2 -translate-y-1/2 min-w-[48px] min-h-[48px] bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </div>
                 <button
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
-                  className="w-full sm:w-auto px-5 md:px-6 h-12 lg:py-3 lg:h-auto bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 text-base lg:text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                  className="hidden lg:flex px-5 md:px-6 h-12 lg:py-3 lg:h-auto bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 text-base lg:text-sm flex items-center justify-center min-w-[56px] shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

@@ -54,4 +54,14 @@ body {
   background: rgb(148, 163, 184); /* slate-400 */
 }
 
+/* Hide scrollbar for carousel */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 
