@@ -21,6 +21,16 @@ const SUGGESTED_QUESTIONS = [
   { text: 'Recommend luxury travel credit cards?', description: 'Elite perks and lounge access', icon: 'premium' },
 ];
 
+const FUN_LOADING_MESSAGES = [
+  "Hold on—I'm convincing the credit cards to reveal their secrets. They're dramatic.",
+  "Loading… because even credit cards need a moment to collect themselves.",
+  "Almost there—just wrestling a contactless card that refuses to make contact.",
+  "Gathering your card info—it's shy at first, but it warms up quickly.",
+  "Just a moment—I'm whispering your question into the data void. It tickles.",
+  "Hang tight—your question is doing a little dramatic pose before answering.",
+  "One moment—your question is making me pinky-promise I'll answer thoughtfully.",
+];
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -299,6 +309,12 @@ export default function Home() {
           content: msg.content,
         }));
 
+      // Find the most recent assistant message with recommendations (previous cards shown)
+      const mostRecentAssistantMessage = [...messages]
+        .reverse()
+        .find((msg) => msg.role === 'assistant' && msg.recommendations && msg.recommendations.length > 0);
+      const previousRecommendations = mostRecentAssistantMessage?.recommendations || [];
+
       const response = await fetch('/api/recommendations', {
         method: 'POST',
         headers: {
@@ -307,6 +323,7 @@ export default function Home() {
         body: JSON.stringify({ 
           message: userMessage,
           conversationHistory: conversationHistory,
+          previousRecommendations: previousRecommendations,
         }),
       });
 
@@ -330,11 +347,6 @@ export default function Home() {
         title: data.title
       });
       
-      // Update the title if provided
-      if (data.title) {
-        setRecommendationTitle(data.title);
-      }
-      
       // Update the user message with summary
       const updatedUserMessages = newMessages.map((msg, idx) => {
         if (idx === newMessages.length - 1 && msg.role === 'user') {
@@ -351,6 +363,10 @@ export default function Home() {
       // For general answers, don't add an assistant message (right box stays unchanged)
       if (data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
         console.log('Adding assistant message with', data.recommendations.length, 'recommendations');
+        // Update the title only when we have new recommendations
+        if (data.title) {
+          setRecommendationTitle(data.title);
+        }
         setMessages([
           ...updatedUserMessages,
           {
@@ -360,8 +376,9 @@ export default function Home() {
           },
         ]);
       } else {
-        console.log('No recommendations found, only updating user message');
+        console.log('No recommendations found, only updating user message - keeping previous recommendations in right box');
         // General answer - only update user message, don't add assistant message
+        // Don't update the title - keep the previous one so right box stays unchanged
         setMessages(updatedUserMessages);
       }
 
@@ -440,6 +457,12 @@ export default function Home() {
           content: msg.content,
         }));
 
+      // Find the most recent assistant message with recommendations (previous cards shown)
+      const mostRecentAssistantMessage = [...messages]
+        .reverse()
+        .find((msg) => msg.role === 'assistant' && msg.recommendations && msg.recommendations.length > 0);
+      const previousRecommendations = mostRecentAssistantMessage?.recommendations || [];
+
       const response = await fetch('/api/recommendations', {
         method: 'POST',
         headers: {
@@ -448,6 +471,7 @@ export default function Home() {
         body: JSON.stringify({ 
           message: question,
           conversationHistory: conversationHistory,
+          previousRecommendations: previousRecommendations,
         }),
       });
 
@@ -471,11 +495,6 @@ export default function Home() {
         title: data.title
       });
       
-      // Update the title if provided
-      if (data.title) {
-        setRecommendationTitle(data.title);
-      }
-      
       // Update the user message with summary
       const updatedUserMessages = newMessages.map((msg, idx) => {
         if (idx === newMessages.length - 1 && msg.role === 'user') {
@@ -492,6 +511,10 @@ export default function Home() {
       // For general answers, don't add an assistant message (right box stays unchanged)
       if (data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
         console.log('Adding assistant message with', data.recommendations.length, 'recommendations');
+        // Update the title only when we have new recommendations
+        if (data.title) {
+          setRecommendationTitle(data.title);
+        }
         setMessages([
           ...updatedUserMessages,
           {
@@ -501,8 +524,9 @@ export default function Home() {
           },
         ]);
       } else {
-        console.log('No recommendations found, only updating user message');
+        console.log('No recommendations found, only updating user message - keeping previous recommendations in right box');
         // General answer - only update user message, don't add assistant message
+        // Don't update the title - keep the previous one so right box stays unchanged
         setMessages(updatedUserMessages);
       }
 
@@ -680,7 +704,7 @@ export default function Home() {
 
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-6xl mx-auto mt-16 md:mt-20 mb-12">
+          <div className="max-w-6xl mx-auto mt-24 md:mt-32 mb-12">
             <div className="flex items-center justify-center gap-2 mb-5">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-primary">
                 <Sparkles className="w-5 h-5 text-white" strokeWidth={2} />
@@ -715,7 +739,7 @@ export default function Home() {
 
         {/* Input Field at Bottom - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-2xl mx-auto mt-12 mb-4">
+          <div className="max-w-2xl mx-auto mt-16 mb-4">
             <div className="flex gap-3">
               <input
                 type="text"
@@ -996,9 +1020,54 @@ export default function Home() {
 
                   // Show loading animation when loading
                   if (isLoading) {
+                    // Check if the current question is about previous cards or a non-recommendation question
+                    // Get the most recent user message (should be the one being processed)
+                    // The message is added to the array before isLoading is set to true
+                    const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
+                    const currentQuery = lastUserMessage?.content?.toLowerCase() || '';
+                    
+                    // Patterns that indicate asking about previous cards or non-recommendation questions
+                    const previousCardPatterns = [
+                      /these cards/i,
+                      /any of these/i,
+                      /these recommendations/i,
+                      /the cards above/i,
+                      /the cards you showed/i,
+                      /the cards you recommended/i,
+                      /which of these/i,
+                      /do these cards/i,
+                      /do any of these/i,
+                      /are these cards/i,
+                      /the recommended cards/i,
+                      /the cards you mentioned/i,
+                    ];
+                    
+                    // Patterns for information questions
+                    const informationQuestionPatterns = [
+                      /^what is\s+(an|a|the)?\s+/i,
+                      /^what's\s+(an|a|the)?\s+/i,
+                      /^what are\s+/i,
+                      /^how do\s+/i,
+                      /^how does\s+/i,
+                      /^how can\s+/i,
+                      /^explain\s+/i,
+                      /^can you explain\s+/i,
+                      /^tell me about\s+/i,
+                      /^what does\s+/i,
+                      /^what's the difference between/i,
+                      /^difference between/i,
+                      /what is the\s+.*\s+of\s+/i,
+                      /what's the\s+.*\s+of\s+/i,
+                      /what is\s+.*\s+for\s+/i,
+                    ];
+                    
+                    const isAboutPreviousCards = previousCardPatterns.some(pattern => pattern.test(currentQuery));
+                    const isInformationQuestion = informationQuestionPatterns.some(pattern => pattern.test(currentQuery));
+                    const useFunMessages = isAboutPreviousCards || isInformationQuestion;
+                    
                     return (
                       <div className="flex flex-col items-center pt-0 pb-4">
-                        <SwipeToLoad />
+                        <SwipeToLoad messages={useFunMessages ? FUN_LOADING_MESSAGES : undefined} />
                         {currentCartoon && (
                           <div className="mt-3 flex flex-col items-center">
                             <div className="w-full max-w-lg rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-slate-50 flex items-center justify-center">

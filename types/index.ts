@@ -65,5 +65,6 @@ export interface ConversationMessage {
 export interface RecommendationsRequest {
   message: string;
   conversationHistory?: ConversationMessage[]; // Optional conversation history
+  previousRecommendations?: Recommendation[]; // Previous cards that were shown to the user
 }
 

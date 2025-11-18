@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     const result: RecommendationsResponse = await generateRecommendations(
       body.message.trim(),
       undefined, // topN uses default
-      body.conversationHistory // Pass conversation history
+      body.conversationHistory, // Pass conversation history
+      body.previousRecommendations // Pass previous recommendations
     );
     
     return NextResponse.json(result);

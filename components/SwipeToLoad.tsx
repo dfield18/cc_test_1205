@@ -3,14 +3,18 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
-const messages = [
+const defaultMessages = [
   'Processing your card options…',
   'Comparing APRs responsibly…',
   'Checking perks and bonuses…',
   'Finding the best fit for your lifestyle…',
 ];
 
-export default function SwipeToLoad() {
+interface SwipeToLoadProps {
+  messages?: string[];
+}
+
+export default function SwipeToLoad({ messages = defaultMessages }: SwipeToLoadProps) {
   const [messageIndex, setMessageIndex] = useState(0);
 
   // Cycle through messages every 2.5 seconds (animation loop duration)
@@ -20,7 +24,7 @@ export default function SwipeToLoad() {
     }, 2500);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [messages.length]);
 
   // Animation keyframes for the card swipe
   const cardAnimation = {
