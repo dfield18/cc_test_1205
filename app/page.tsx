@@ -2306,9 +2306,12 @@ export default function Home() {
                     const rightmostPosition = rightmostDotRightEdge - barWidth; // 3rem
                     
                     // Map scroll progress (0-1) to bar position
-                    // Force progress to 1.0 when >= 0.85 to ensure bar reaches rightmost
-                    const progress = suggestionsCarouselScrollProgress >= 0.85 ? 1.0 : suggestionsCarouselScrollProgress;
-                    const barPosition = progress * rightmostPosition;
+                    // Bar should reach rightmost position when scroll is 75% (0.75) of the way
+                    // So we need to scale the progress: when progress = 0.75, bar should be at rightmostPosition
+                    // Scale factor: rightmostPosition should be reached at progress = 0.75
+                    // So: barPosition = (progress / 0.75) * rightmostPosition, capped at rightmostPosition
+                    const scaledProgress = Math.min(suggestionsCarouselScrollProgress / 0.75, 1.0);
+                    const barPosition = scaledProgress * rightmostPosition;
                     
                     return (
                       <div className="flex justify-center gap-2 mt-4 relative" style={{ width: 'fit-content', margin: '1rem auto 0' }}>
