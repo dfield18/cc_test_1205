@@ -1549,12 +1549,12 @@ export default function Home() {
         <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full blur-3xl"></div>
       </div>
       
-      <div className={`container mx-auto px-4 lg:px-6 max-w-7xl relative z-10 ${messages.length > 0 ? (messages.some(msg => msg.role === 'user') ? 'pt-6 lg:pt-4 md:pt-6' : 'pt-4 md:pt-6') : 'pt-6 md:pt-8'} ${messages.length > 0 ? (messages.some(msg => msg.role === 'user') ? 'pb-24 lg:pb-4 md:pb-6' : 'pb-4 md:pb-6') : 'pb-6 md:pb-8'}`}>
+      <div className={`container mx-auto px-4 lg:px-6 max-w-7xl relative z-10 ${messages.length > 0 ? (messages.some(msg => msg.role === 'user') ? 'pt-6 lg:pt-4 md:pt-6' : 'pt-4 md:pt-6') : 'pt-6 md:pt-8 lg:pt-4'} ${messages.length > 0 ? (messages.some(msg => msg.role === 'user') ? 'pb-24 lg:pb-4 md:pb-6' : 'pb-4 md:pb-6') : 'pb-6 md:pb-8'}`}>
         {/* Hero Section */}
-        <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-2 md:py-6 mb-2 lg:mb-2' : 'py-2 md:py-4 mb-4'}`}>
+        <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-2 md:py-6 mb-2 lg:mb-2' : 'py-2 md:py-4 lg:py-2 mb-2 lg:mb-4'}`}>
           {/* Hero content */}
           <div className="relative z-10 max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-2 lg:mb-3 tracking-tight">
               <span className="bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
                 Find Your Perfect
               </span>
@@ -1611,7 +1611,7 @@ export default function Home() {
 
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-6xl mx-auto mt-16 lg:mt-32 md:mt-40 mb-12">
+          <div className="max-w-6xl mx-auto mt-16 lg:mt-8 md:mt-40 mb-6 lg:mb-8">
             <div className="flex items-center justify-center gap-2 mb-3 lg:mb-5">
               <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center bg-primary">
                 <Sparkles className="h-4 w-4 lg:h-5 lg:w-5 text-white" strokeWidth={2} />
@@ -1758,7 +1758,7 @@ export default function Home() {
 
         {/* Input Field at Bottom - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-3xl mx-auto px-4 mt-[6.192rem] lg:mt-32 mb-4">
+          <div className="max-w-3xl mx-auto px-4 mt-[6.192rem] lg:mt-8 mb-4">
             <div className="flex flex-col space-y-4">
               <div className="relative">
                 <input
