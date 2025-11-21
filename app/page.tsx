@@ -1926,7 +1926,7 @@ export default function Home() {
       <style dangerouslySetInnerHTML={{__html: `
         @media (min-width: 1024px) {
           .desktop-grid-cols {
-            grid-template-columns: 45% 55% !important;
+            grid-template-columns: 40% 60% !important;
           }
         }
       `}} />
@@ -2921,12 +2921,12 @@ export default function Home() {
                             
                             {/* Description */}
                             {rec.reason && (
-                              <p className="text-sm text-slate-600 mb-5 flex-grow leading-relaxed">
+                              <p className="text-sm text-slate-600 mb-0 leading-relaxed">
                                 {rec.reason}
                               </p>
                             )}
                             
-                            <div className="space-y-2.5 text-sm mb-5 border-t border-slate-100 pt-4">
+                            <div className="space-y-2.5 text-sm mb-5 mt-1">
                               {/* Annual Fee */}
                               {rec.annual_fee && (
                                 <div className="flex justify-between">
