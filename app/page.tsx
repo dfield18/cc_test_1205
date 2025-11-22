@@ -5,7 +5,7 @@ import { Recommendation } from '@/types';
 import SwipeToLoad from '@/components/SwipeToLoad';
 import CartoonDisplay from '@/components/CartoonDisplay';
 import ReactMarkdown from 'react-markdown';
-import { Plane, ShoppingCart, Shield, User, Sparkles, CreditCard, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, Star, ExternalLink } from 'lucide-react';
+import { Plane, ShoppingCart, Shield, User, Sparkles, CreditCard, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Check, Star, ExternalLink, TrendingUp } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -139,6 +139,96 @@ export default function Home() {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Prevent scrolling too far past bottom of page on desktop (initial load only)
+  useEffect(() => {
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+    if (!isDesktop || messages.length > 0) return;
+
+    const getMetricsBottom = () => {
+      const metricsSection = document.getElementById('metrics-section');
+      if (!metricsSection) return 0;
+      const rect = metricsSection.getBoundingClientRect();
+      return rect.bottom + window.scrollY;
+    };
+
+    const handleScroll = () => {
+      const metricsBottom = getMetricsBottom();
+      if (metricsBottom === 0) return;
+
+      const currentScroll = window.scrollY || document.documentElement.scrollTop;
+      const maxScroll = metricsBottom + 50; // Allow only 50px of scroll past bottom
+
+      // If user tries to scroll too far past the bottom, prevent it
+      if (currentScroll > maxScroll) {
+        window.scrollTo({
+          top: maxScroll,
+          behavior: 'auto'
+        });
+      }
+    };
+
+    // Also handle wheel events to prevent scrolling down too far
+    const handleWheel = (e: WheelEvent) => {
+      const metricsBottom = getMetricsBottom();
+      if (metricsBottom === 0) return;
+
+      const currentScroll = window.scrollY || document.documentElement.scrollTop;
+      const maxScroll = metricsBottom + 50; // Allow only 50px of scroll past bottom
+
+      // If scrolling down and already at or near the limit, prevent it
+      if (e.deltaY > 0 && currentScroll >= maxScroll - 10) {
+        e.preventDefault();
+        e.stopPropagation();
+        window.scrollTo({
+          top: maxScroll,
+          behavior: 'auto'
+        });
+      }
+    };
+
+    // Handle touch events for trackpads
+    const handleTouchMove = (e: TouchEvent) => {
+      const metricsBottom = getMetricsBottom();
+      if (metricsBottom === 0) return;
+
+      const currentScroll = window.scrollY || document.documentElement.scrollTop;
+      const maxScroll = metricsBottom + 50;
+
+      if (currentScroll >= maxScroll) {
+        e.preventDefault();
+      }
+    };
+
+    // Set initial max scroll position
+    const setMaxScroll = () => {
+      const metricsBottom = getMetricsBottom();
+      if (metricsBottom === 0) return;
+
+      const currentScroll = window.scrollY || document.documentElement.scrollTop;
+      const maxScroll = metricsBottom + 50;
+
+      if (currentScroll > maxScroll) {
+        window.scrollTo({
+          top: maxScroll,
+          behavior: 'auto'
+        });
+      }
+    };
+
+    // Run after a short delay to ensure DOM is ready
+    setTimeout(setMaxScroll, 100);
+
+    window.addEventListener('scroll', handleScroll, { passive: false });
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [messages.length]); // Re-run when messages change
 
   // Track chatbot container visibility for mobile
   useEffect(() => {
@@ -2031,27 +2121,67 @@ export default function Home() {
         )}
 
         {/* Hero Section */}
-        <section className={`relative overflow-hidden ${messages.length > 0 ? 'py-2 md:py-6 mb-2 lg:mb-2' : 'py-2 md:py-4 lg:py-2 mb-2 lg:mb-4'}`}>
+        <section className={`relative ${messages.length > 0 ? 'py-2 md:py-6 mb-2 lg:mb-2' : 'py-2 md:py-4 lg:pt-20 lg:pb-8 mb-2 lg:mb-4'} ${messages.length === 0 ? 'lg:before:absolute lg:before:-top-[200px] lg:before:bottom-0 lg:before:left-1/2 lg:before:-translate-x-1/2 lg:before:w-screen lg:before:bg-hero-gradient lg:before:-z-10' : ''}`}>
           {/* Hero content */}
-          <div className="relative z-10 max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-2 lg:mb-3 tracking-tight">
-              <span className="bg-gradient-to-r from-primary via-primary-glow to-accent bg-clip-text text-transparent">
-                Find Your Perfect
+          <div className="relative z-10 max-w-3xl lg:max-w-7xl mx-auto text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-2 lg:mb-3 tracking-tight lg:whitespace-nowrap text-center">
+              <span className="hidden lg:inline">
+                <span className="text-primary">Find Your </span>
+                <span className="bg-gradient-to-r from-primary to-purple-light bg-clip-text text-transparent">Perfect </span>
+                <span className="text-foreground">Credit Card Match</span>
               </span>
-              <br />
-              <span className="text-foreground">
-                Credit Card Match
+              <span className="lg:hidden">
+                <span className="text-primary">Find Your Perfect</span>
+                <br />
+                <span className="text-foreground">Credit Card Match</span>
               </span>
             </h1>
             
             {messages.length === 0 && (
-              <p className="text-lg lg:text-2xl text-muted-foreground max-w-2xl mx-auto leading-tight lg:leading-relaxed">
+              <p className="text-lg lg:text-2xl text-muted-foreground max-w-2xl mx-auto leading-tight lg:leading-relaxed mb-0 lg:mb-4">
                 <span className="lg:hidden">Get personalized credit card recommendations powered by AI.</span>
                 <span className="hidden lg:block">
                   <span className="whitespace-nowrap block">Get personalized credit card recommendations powered by AI.</span>
                   <span className="whitespace-nowrap block">Find the perfect card for your spending habits and financial goals.</span>
                 </span>
               </p>
+            )}
+
+            {/* Input Field on Desktop - Show when no messages, inside hero section */}
+            {messages.length === 0 && (
+              <div className="hidden lg:block max-w-3xl mx-auto px-4 mt-4">
+                <div className="flex flex-col space-y-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Ask about credit cards, rewards, travel perks..."
+                      className="w-full h-auto py-3 md:py-6 px-3 pr-20 md:pr-28 text-base md:text-sm border border-input rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
+                    />
+                    <button
+                      onClick={handleSend}
+                      disabled={isLoading || !input.trim()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-4 md:px-6 py-2 md:py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 active:scale-95"
+                    >
+                      <Search className="w-4 h-4 md:w-5 md:h-5" />
+                      <span className="hidden md:inline text-sm font-medium">Search</span>
+                    </button>
+                  </div>
+                  {/* Trust indicators - Desktop only */}
+                  <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4" />
+                      <span>Enter to send</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Instant AI recommendations</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </section>
@@ -2091,17 +2221,78 @@ export default function Home() {
 
         {/* Popular Questions Section - Only show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-6xl mx-auto mt-16 lg:mt-8 md:mt-40 mb-6 lg:mb-8">
-            <div className="flex items-center justify-center gap-2 mb-3 lg:mb-5">
+          <div className="max-w-6xl mx-auto mt-16 lg:mt-20 md:mt-40 mb-6 lg:mb-8">
+            {/* Badge above heading - Desktop only */}
+            <div className="hidden lg:flex items-center justify-center mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+                <Sparkles className="h-4 w-4 text-primary" strokeWidth={2} />
+                <span className="text-sm font-medium text-primary">Popular Questions</span>
+              </div>
+            </div>
+            
+            {/* Mobile heading */}
+            <div className="flex items-center justify-center gap-2 mb-3 lg:mb-5 lg:hidden">
               <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center bg-primary">
                 <Sparkles className="h-4 w-4 lg:h-5 lg:w-5 text-white" strokeWidth={2} />
               </div>
               <h3 className="text-xl lg:text-2xl md:text-3xl font-bold text-foreground">Popular Questions</h3>
             </div>
-            {/* Carousel for Popular Questions */}
+            
+            {/* Desktop heading and subtitle */}
+            <div className="hidden lg:block text-center mb-6">
+              <h2 className="text-3xl font-bold text-foreground mb-2">Quick Start Guide</h2>
+              <p className="text-muted-foreground">Choose a question or ask your own</p>
+            </div>
+            {/* Desktop Grid Layout */}
+            <div className="hidden lg:grid lg:grid-cols-4 gap-4">
+              {carouselQuestions.slice(0, 4).map((question, index) => {
+                // Map icon types to lucide-react icons for desktop - matching screenshot
+                const getDesktopIcon = () => {
+                  // First card: travel -> TrendingUp
+                  if (index === 0 && question.icon === 'travel') return <TrendingUp className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  // Second card: shopping -> CreditCard
+                  if (index === 1 && question.icon === 'shopping') return <CreditCard className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  // Third card: creditcard -> Shield
+                  if (index === 2 && question.icon === 'creditcard') return <Shield className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  // Fourth card: premium -> Sparkles
+                  if (index === 3 && question.icon === 'premium') return <Sparkles className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  // Fallback mappings
+                  if (question.icon === 'travel') return <TrendingUp className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  if (question.icon === 'shopping') return <CreditCard className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  if (question.icon === 'creditcard') return <Shield className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  if (question.icon === 'premium') return <Sparkles className="w-5 h-5 text-primary" strokeWidth={2} />;
+                  return <TrendingUp className="w-5 h-5 text-primary" strokeWidth={2} />;
+                };
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestedQuestion(question.text)}
+                    disabled={isLoading}
+                    className="bg-white rounded-lg p-4 border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed group"
+                  >
+                    <div className="flex flex-col space-y-3">
+                      <div className="flex items-start">
+                        <div className="text-primary">
+                          {getDesktopIcon()}
+                        </div>
+                      </div>
+                      <h3 className="font-semibold text-base text-card-foreground leading-tight">
+                        {question.text}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {question.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* Mobile Carousel for Popular Questions */}
             <div 
               ref={popularQuestionsCarouselRef}
-              className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-4 -mx-4 bg-slate-50/50 rounded-lg py-3 cursor-grab active:cursor-grabbing"
+              className="lg:hidden flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-4 -mx-4 bg-slate-50/50 rounded-lg py-3 cursor-grab active:cursor-grabbing"
               style={{
                 WebkitOverflowScrolling: 'touch',
                 scrollBehavior: 'smooth',
@@ -2116,7 +2307,8 @@ export default function Home() {
                 touchAction: 'pan-x'
               }}
             >
-              {carouselQuestions.map((question, index) => (
+              {carouselQuestions.map((question, index) => {
+                return (
                   <button
                     key={index}
                     onClick={(e) => {
@@ -2129,11 +2321,13 @@ export default function Home() {
                       handleSuggestedQuestion(question.text);
                     }}
                     disabled={isLoading}
-                    className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200 hover:border-blue-300 hover:shadow-md hover:scale-105 transition-all duration-200 h-[240px] sm:h-[240px] w-[280px] sm:w-[280px] flex-shrink-0 snap-center flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                    className="bg-white/80 backdrop-blur-sm rounded-xl p-2.5 sm:p-3 border border-slate-200 hover:border-primary/50 hover:shadow-card-hover hover:scale-105 transition-all duration-300 ease-out h-[240px] sm:h-[240px] w-[280px] sm:w-[280px] flex-shrink-0 snap-center flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   >
                     <div className="flex flex-col items-center text-center space-y-4 flex-1 justify-center">
-                      <div className="rounded-full bg-primary/10 p-4 min-w-[56px] min-h-[56px] flex items-center justify-center">
-                        {renderSuggestedIcon(question.icon, 'w-7 h-7', true)}
+                      <div className="rounded-full bg-primary/10 p-4 min-w-[56px] min-h-[56px] flex items-center justify-center group-hover:bg-primary/20 transition-all duration-300 ease-out">
+                        <div className="group-hover:scale-110 transition-transform duration-300">
+                          {renderSuggestedIcon(question.icon, 'w-7 h-7', true)}
+                        </div>
                       </div>
                       <h3 className="font-semibold text-base text-card-foreground leading-tight px-2">
                         {question.mobileText || question.text}
@@ -2143,11 +2337,12 @@ export default function Home() {
                       </p>
                     </div>
                   </button>
-                ))}
+                );
+              })}
             </div>
-            {/* Carousel Indicators with Tracking Bar */}
+            {/* Carousel Indicators with Tracking Bar - Mobile only */}
             {carouselQuestions.length > 0 && (
-              <div className="flex justify-center gap-2 mt-4 relative" style={{ width: 'fit-content', margin: '1rem auto 0' }}>
+              <div className="lg:hidden flex justify-center gap-2 mt-4 relative" style={{ width: 'fit-content', margin: '1rem auto 0' }}>
                 {(() => {
                   // Show a maximum of 5 dots
                   const maxDots = 5;
@@ -2252,9 +2447,39 @@ export default function Home() {
           </div>
         )}
 
-        {/* Input Field at Bottom - Only show when no messages */}
+        {/* Metrics Section - Desktop only, show when no messages */}
         {messages.length === 0 && (
-          <div className="max-w-3xl mx-auto px-4 mt-[6.192rem] lg:mt-8 mb-4">
+          <div id="metrics-section" className="hidden lg:block relative mt-16">
+            {/* Full-width background */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-screen bg-white border-t border-slate-200 -z-10"></div>
+            {/* Content */}
+            <div className="relative max-w-6xl mx-auto py-12">
+              <div className="flex items-center justify-center gap-16">
+                {/* Cards Analyzed */}
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-2">10,000+</div>
+                  <div className="text-base text-muted-foreground font-sans">Cards Analyzed</div>
+                </div>
+                
+                {/* Happy Users */}
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-2">50,000+</div>
+                  <div className="text-base text-muted-foreground font-sans">Happy Users</div>
+                </div>
+                
+                {/* AI-Powered */}
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-2">AI-Powered</div>
+                  <div className="text-base text-muted-foreground font-sans">Smart Recommendations</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Input Field at Bottom - Only show when no messages, Mobile only */}
+        {messages.length === 0 && (
+          <div className="lg:hidden max-w-3xl mx-auto px-4 mt-[6.192rem] mb-4">
             <div className="flex flex-col space-y-4">
               <div className="relative">
                 <input
@@ -2263,14 +2488,15 @@ export default function Home() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask about credit cards, rewards, travel perks..."
-                  className="w-full h-auto py-3 md:py-6 px-3 pr-16 md:pr-24 text-base md:text-sm border border-input rounded-md bg-card shadow-card text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
+                  className="w-full h-auto py-3 md:py-6 px-3 pr-20 md:pr-28 text-base md:text-sm border border-input rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all"
                 />
                 <button
                   onClick={handleSend}
                   disabled={isLoading || !input.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] md:min-w-[56px] md:min-h-[56px] md:px-6 md:py-3 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center active:scale-95"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 md:px-6 py-2 md:py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 active:scale-95"
                 >
-                  <Search className="w-5 h-5" />
+                  <Search className="w-4 h-4 md:w-5 md:h-5" />
+                  <span className="hidden md:inline text-sm font-medium">Search</span>
                 </button>
               </div>
               <div className="text-center text-sm text-muted-foreground flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center">
