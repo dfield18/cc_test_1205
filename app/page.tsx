@@ -80,6 +80,9 @@ export default function Home() {
   // On desktop, show only 6 questions in the carousel
   const [isDesktop, setIsDesktop] = useState(false);
   
+  // State for collapsible credit card boxes (all closed by default)
+  const [openCardBoxes, setOpenCardBoxes] = useState<Set<number>>(new Set([]));
+  
   // Questions to show in carousel (6 on desktop, all on mobile)
   const carouselQuestions = useMemo(() => {
     return isDesktop ? SUGGESTED_QUESTIONS.slice(0, 6) : SUGGESTED_QUESTIONS;
@@ -1358,6 +1361,8 @@ export default function Home() {
     
     if (hasChanged && currentRecommendations.length > 0) {
       prevRecommendationsRef.current = currentRecommendations;
+      // Reset collapsible boxes: all closed by default
+      setOpenCardBoxes(new Set([]));
     } else if (currentRecommendations.length === 0) {
       prevRecommendationsRef.current = [];
     }
@@ -2075,7 +2080,7 @@ export default function Home() {
       <style dangerouslySetInnerHTML={{__html: `
         @media (min-width: 1024px) {
           .desktop-grid-cols {
-            grid-template-columns: 32% 68% !important;
+            grid-template-columns: 45% 55% !important;
           }
         }
       `}} />
@@ -2512,14 +2517,14 @@ export default function Home() {
         <div className={messages.some(msg => msg.role === 'user') ? 'lg:relative' : ''}>
         <div 
           ref={chatbotContainerRef} 
-          className={`grid gap-6 mb-6 ${messages.some(msg => msg.role === 'user') ? 'mt-12 lg:mt-16 lg:mb-0' : 'mt-12 lg:mt-4'} ${messages.some(msg => msg.role === 'user') ? 'grid-cols-1 desktop-grid-cols lg:-ml-12 lg:-mr-12' : 'grid-cols-1 max-w-xl mx-auto'} ${messages.some(msg => msg.role === 'user') ? 'lg:h-[700px]' : 'h-[500px]'} overflow-visible lg:overflow-hidden`}
+          className={`grid gap-6 mb-6 ${messages.some(msg => msg.role === 'user') ? 'mt-12 lg:mt-16 lg:mb-0' : 'mt-12 lg:mt-4'} ${messages.some(msg => msg.role === 'user') ? 'grid-cols-1 desktop-grid-cols lg:-ml-12 lg:-mr-12' : 'grid-cols-1 max-w-xl mx-auto'} ${messages.some(msg => msg.role === 'user') ? 'lg:h-[900px]' : 'h-[500px]'} overflow-visible lg:overflow-hidden`}
         >
           {/* Left Column - Chatbot */}
-          <div className={`${messages.some(msg => msg.role === 'user') ? 'lg:col-span-1 lg:relative' : 'col-span-1'} flex flex-col ${messages.some(msg => msg.role === 'user') ? 'min-h-[600px] lg:h-[700px]' : 'h-[500px]'} overflow-visible lg:overflow-hidden`}>
-            <div className={`lg:bg-transparent bg-transparent rounded-2xl lg:shadow-none border lg:border-transparent border-slate-200/30 lg:h-full flex flex-col backdrop-blur-sm ${messages.some(msg => msg.role === 'user') ? 'p-4 lg:p-8' : 'p-4 md:p-6'}`} style={{ maxHeight: '100%' }}>
+          <div className={`${messages.some(msg => msg.role === 'user') ? 'lg:col-span-1 lg:relative' : 'col-span-1'} flex flex-col ${messages.some(msg => msg.role === 'user') ? 'min-h-[600px] lg:h-[900px]' : 'h-[500px]'} overflow-visible lg:overflow-hidden`}>
+            <div className={`lg:bg-transparent bg-transparent rounded-2xl lg:shadow-none border lg:border-transparent border-slate-200/30 lg:h-full flex flex-col backdrop-blur-sm ${messages.some(msg => msg.role === 'user') ? 'p-4 lg:p-8' : 'p-4 md:p-6'}`} style={{ maxHeight: '100%', overflow: 'hidden' }}>
               <div className={`${messages.some(msg => msg.role === 'user') ? 'mb-6 pb-4' : 'mb-4 pb-3'} border-b border-slate-200/60 flex-shrink-0 hidden lg:block`}>
-                <h3 className={`${messages.some(msg => msg.role === 'user') ? 'text-xl' : 'text-lg'} font-semibold text-slate-900 mb-1`}>Your Questions</h3>
-                <p className="text-base text-muted-foreground">Ask me anything about credit cards</p>
+                <h3 className="text-xl lg:text-2xl font-bold text-slate-900 mb-1">Your Questions</h3>
+                <p className="text-xs lg:text-sm text-slate-500 font-light">Ask me anything about credit cards</p>
               </div>
               <div 
                 ref={(el) => {
@@ -2574,23 +2579,25 @@ export default function Home() {
                     }
                   }
                 }}
-                className={`flex-1 mb-4 min-h-0 lg:max-h-full px-1 lg:[direction:rtl] ${
+                className={`flex-1 min-h-0 lg:max-h-full px-1 lg:[direction:rtl] ${
                   messages.some(msg => msg.role === 'user') 
                     ? 'lg:overflow-y-auto overflow-x-hidden lg:scrollbar-thin overflow-visible' 
                     : 'lg:overflow-hidden overflow-visible scrollbar-hide'
                 }`}
                 style={messages.some(msg => msg.role === 'user') 
-                  ? (isMobile ? { overflowX: 'hidden' } : { 
+                  ? (isMobile ? { overflowX: 'hidden', marginBottom: '1rem' } : { 
                       scrollbarWidth: 'thin', 
                       overflowX: 'hidden', 
                       overflowY: 'auto',
                       touchAction: 'pan-y',
-                      direction: 'rtl'
+                      direction: 'rtl',
+                      paddingBottom: '6rem',
+                      marginBottom: '0'
                     })
                   : (isMobile ? {} : { overflow: 'hidden', scrollbarWidth: 'none' })
                 }
               >
-              <div className="lg:[direction:ltr] overflow-x-hidden overflow-y-hidden min-w-0">
+              <div className="lg:[direction:ltr] overflow-x-hidden overflow-y-hidden min-w-0" style={messages.some(msg => msg.role === 'user') && !isMobile ? { paddingBottom: '4rem' } : {}}>
               {(
                 <>
                   {(() => {
@@ -3072,7 +3079,7 @@ export default function Home() {
 
           {/* Right Column - Credit Card Recommendations - Only show after a question is asked */}
           {messages.some(msg => msg.role === 'user') && (
-          <div className="hidden lg:flex lg:col-span-1 flex-col h-[500px] lg:h-[700px]" style={{ overflow: 'hidden', marginLeft: '5%' }}>
+          <div className="hidden lg:flex lg:col-span-1 flex-col h-[500px] lg:h-[900px]" style={{ overflow: 'hidden', marginLeft: '5%' }}>
             <div className="lg:bg-transparent bg-white rounded-2xl lg:shadow-none lg:border-transparent shadow-2xl shadow-slate-300/40 border border-slate-200/60 p-4 lg:p-8 h-full flex flex-col backdrop-blur-sm" style={{ maxHeight: '100%', overflow: 'hidden' }}>
               <div className="hidden lg:flex items-center gap-3 mb-6 lg:mb-8 flex-shrink-0">
                 <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
@@ -3193,12 +3200,13 @@ export default function Home() {
 
                   return (
                     <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
-                        {mostRecentAssistantMessage.recommendations.slice(0, 4).map((rec, recIndex) => {
+                      <div className="flex flex-col gap-4 mb-6">
+                        {mostRecentAssistantMessage.recommendations.slice(0, 3).map((rec, recIndex) => {
                           // Extract issuer from card name (usually first word)
                           const cardNameParts = rec.credit_card_name.split(' ');
                           const issuer = cardNameParts[0];
                           const cardName = cardNameParts.slice(1).join(' ') || rec.credit_card_name;
+                          const isOpen = openCardBoxes.has(recIndex);
                           
                           // Parse benefits from reason, perks, or rewards_rate
                           const parseBenefits = (): string[] => {
@@ -3244,68 +3252,91 @@ export default function Home() {
                           
                           const benefits = parseBenefits();
                           
+                          const toggleBox = () => {
+                            setOpenCardBoxes(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(recIndex)) {
+                                newSet.delete(recIndex);
+                              } else {
+                                newSet.add(recIndex);
+                              }
+                              return newSet;
+                            });
+                          };
+                          
                           return (
                             <div
                               key={recIndex}
-                              className="bg-gradient-to-br from-card to-blue-50 rounded-xl border border-border shadow-md hover:shadow-lg transition-all duration-300 p-6 flex flex-col group hover:-translate-y-1 space-y-4"
+                              className="bg-gradient-to-br from-card to-blue-50 rounded-xl border border-border shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden"
                             >
-                              {/* Header Section */}
-                              <div className="flex items-start gap-3">
-                                {/* Card Icon */}
-                                <div className="w-16 h-10 rounded bg-gradient-to-br from-primary/10 to-primary/5 border border-border flex-shrink-0 flex items-center justify-center">
-                                  <CreditCard className="w-5 h-5 text-primary" />
+                              {/* Collapsible Header */}
+                              <button
+                                onClick={toggleBox}
+                                className="w-full p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  {/* Card Icon */}
+                                  <div className="w-12 h-8 rounded bg-gradient-to-br from-primary/10 to-primary/5 border border-border flex-shrink-0 flex items-center justify-center">
+                                    <CreditCard className="w-4 h-4 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 text-left">
+                                    {/* Card Name */}
+                                    <h3 className="text-base font-semibold text-foreground leading-tight mb-0.5 truncate">
+                                      {cardName}
+                                    </h3>
+                                    {/* Issuer */}
+                                    <p className="text-xs text-muted-foreground truncate">{issuer}</p>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  {/* Card Name */}
-                                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors leading-tight mb-1">
-                                    <a 
+                                {/* Toggle Icon */}
+                                <div className="flex-shrink-0 ml-3">
+                                  {isOpen ? (
+                                    <ChevronUp className="w-5 h-5 text-slate-600" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-slate-600" />
+                                  )}
+                                </div>
+                              </button>
+                              
+                              {/* Collapsible Content */}
+                              {isOpen && (
+                                <div className="px-4 pb-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                                  {/* Benefits Section */}
+                                  {benefits.length > 0 && (
+                                    <div className="space-y-2">
+                                      {benefits.map((benefit, idx) => (
+                                        <div key={idx} className="flex items-start gap-2">
+                                          <Check className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                                          <p className="text-sm text-foreground leading-relaxed">{benefit}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Footer Section */}
+                                  <div className="border-t border-border pt-4 space-y-3">
+                                    {/* Badges */}
+                                    <div className="flex flex-wrap gap-2">
+                                      {rec.annual_fee && (
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                                          {rec.annual_fee}
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    {/* CTA Button */}
+                                    <a
                                       href={rec.apply_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="hover:underline cursor-pointer"
+                                      className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-medium border border-border rounded-lg bg-transparent text-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:border-primary"
                                     >
-                                      {cardName}
+                                      Learn More
+                                      <ExternalLink className="w-4 h-4 ml-2" />
                                     </a>
-                                  </h3>
-                                  {/* Issuer */}
-                                  <p className="text-sm text-muted-foreground">{issuer}</p>
-                                </div>
-                              </div>
-                              
-                              {/* Benefits Section */}
-                              {benefits.length > 0 && (
-                                <div className="space-y-2">
-                                  {benefits.map((benefit, idx) => (
-                                    <div key={idx} className="flex items-start gap-2">
-                                      <Check className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                                      <p className="text-sm text-foreground leading-relaxed">{benefit}</p>
-                                    </div>
-                                  ))}
+                                  </div>
                                 </div>
                               )}
-                              
-                              {/* Footer Section */}
-                              <div className="border-t border-border pt-4 space-y-3">
-                                {/* Badges */}
-                                <div className="flex flex-wrap gap-2">
-                                  {rec.annual_fee && (
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                                      {rec.annual_fee}
-                                    </span>
-                                  )}
-                                </div>
-                                
-                                {/* CTA Button */}
-                                <a
-                                  href={rec.apply_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-medium border border-border rounded-lg bg-transparent text-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-300 group-hover:border-primary"
-                                >
-                                  Learn More
-                                  <ExternalLink className="w-4 h-4 ml-2" />
-                                </a>
-                              </div>
                             </div>
                           );
                         })}
@@ -3337,7 +3368,7 @@ export default function Home() {
         
         {/* Desktop Input and Recommendations - Below container on left side, after first question */}
         {messages.some(msg => msg.role === 'user') && (
-          <div className="hidden lg:block lg:absolute lg:bottom-0 lg:-ml-12 lg:px-6 lg:z-20 lg:bg-white lg:pt-4 lg:pb-4" style={{ width: '32%' }}>
+          <div className="hidden lg:block lg:absolute lg:bottom-0 lg:-ml-12 lg:px-6 lg:z-20 lg:bg-white lg:pt-4 lg:pb-4" style={{ width: '45%' }}>
             {/* Input Area - Desktop */}
             {!isLoading && (
               <div className="flex flex-col gap-3 mb-6 max-w-lg">
@@ -3369,22 +3400,22 @@ export default function Home() {
             
             {/* Dynamic Suggested Questions - Desktop only */}
             {dynamicSuggestions.length > 0 && messages.length > 0 && !isLoading && (
-              <div className="mt-6 pt-6 border-t border-slate-200">
-                <p className="text-xs md:text-sm text-slate-500 mb-4 font-semibold uppercase tracking-wide">You might also ask:</p>
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-xs md:text-sm text-slate-500 mb-2 font-semibold uppercase tracking-wide">You might also ask:</p>
                 {/* Fixed three boxes grid for desktop */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {dynamicSuggestions.slice(0, 3).map((suggestion, index) => (
                     <button
                       key={index}
                       onClick={() => handleSuggestedQuestion(suggestion)}
                       disabled={isLoading}
-                      className="bg-white rounded-xl p-2 border border-slate-200 hover:border-teal-300 hover:shadow-md hover:scale-105 transition-all duration-200 h-[160px] flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                      className="bg-white rounded-xl p-1.5 border border-slate-200 hover:border-teal-300 hover:shadow-md hover:scale-105 transition-all duration-200 h-[110px] flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                     >
-                      <div className="flex flex-col items-center text-center space-y-2 flex-1 justify-center">
-                        <div className="rounded-full bg-primary/10 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center">
-                          <span className="text-lg group-hover:scale-110 transition-transform">{getSuggestionIcon(suggestion)}</span>
+                      <div className="flex flex-col items-center text-center space-y-1.5 flex-1 justify-center">
+                        <div className="rounded-full bg-primary/10 p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center">
+                          <span className="text-base group-hover:scale-110 transition-transform">{getSuggestionIcon(suggestion)}</span>
                         </div>
-                        <h3 className="font-semibold text-xs text-card-foreground leading-tight px-2">
+                        <h3 className="font-semibold text-xs text-card-foreground leading-tight px-1">
                           {suggestion}
                         </h3>
                       </div>
