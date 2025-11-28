@@ -119,4 +119,34 @@ body {
   background: rgb(148, 163, 184);
 }
 
+/* Ensure first credit card link in chatbot response starts on new line on desktop */
+@media (min-width: 768px) {
+  /* Make any strong element containing a link in the first paragraph display as block */
+  .prose p:first-of-type strong:has(a) {
+    display: block;
+    margin-top: 0.5rem;
+    width: 100%;
+  }
+  
+  /* Fallback: if link is directly in paragraph (not in strong), make it block */
+  .prose p:first-of-type > a:first-of-type {
+    display: block;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Small font size for credit card names on desktop */
+@media (min-width: 1024px) {
+  .card-name-desktop,
+  p.card-name-desktop,
+  h3.card-name-desktop,
+  button .card-name-desktop,
+  button p.card-name-desktop,
+  button h3.card-name-desktop {
+    font-size: 15px !important;
+    font-weight: bold !important;
+    line-height: 1.2 !important;
+  }
+}
+
 

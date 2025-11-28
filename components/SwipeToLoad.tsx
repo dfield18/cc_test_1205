@@ -17,11 +17,11 @@ interface SwipeToLoadProps {
 export default function SwipeToLoad({ messages = defaultMessages }: SwipeToLoadProps) {
   const [messageIndex, setMessageIndex] = useState(0);
 
-  // Cycle through messages every 2.5 seconds (animation loop duration)
+  // Cycle through messages every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % messages.length);
-    }, 2500);
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [messages.length]);

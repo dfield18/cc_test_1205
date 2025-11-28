@@ -224,6 +224,29 @@ export default function Home() {
     return normalized;
   };
 
+  const cleanUrlText = (text: string): string => {
+    if (!text) return text;
+    let cleaned = text;
+    
+    // Remove URL fragments that appear as plain text before ")** -"
+    // Pattern: "com/credit-cards/savorone-student/)** -" or similar
+    // This is the main issue - URL text appearing outside markdown links
+    cleaned = cleaned.replace(/\s+(com\/[^\s\)]+|www\.[^\s\)]+|https?:\/\/[^\s\)]+)[^-\n]*?\)\*\*\s*-\s*/g, ' - ');
+    
+    // Remove URL fragments that appear after markdown links
+    // Pattern: ")** com/..." or ")** www..." appearing after a markdown link
+    cleaned = cleaned.replace(/\)\*\*\s+(com\/[^\s\)]+|www\.[^\s\)]+|https?:\/\/[^\s\)]+)[^-\n]*?\)\*\*\s*-\s*/g, ')** - ');
+    
+    // Remove URL fragments that appear after markdown link closing
+    // Pattern: markdown link ending with )** followed by URL text and )**
+    cleaned = cleaned.replace(/(\]\([^)]+\)\*\*)\s+(com\/[^\s\)]+|www\.[^\s\)]+|https?:\/\/[^\s\)]+)[^-\n]*?\)\*\*\s*-\s*/g, '$1 - ');
+    
+    // Remove any remaining URL-like text that appears before ")** -"
+    cleaned = cleaned.replace(/([^\]])\s+(com\/[^\s\)]+|www\.[^\s\)]+|https?:\/\/[^\s\)]+)[^-\n]*?\)\*\*\s*-\s*/g, '$1 - ');
+    
+    return cleaned;
+  };
+
   const getRecommendationHighlight = (rec: Recommendation) => {
     const highlight =
       rec.reason ||
@@ -3038,6 +3061,7 @@ export default function Home() {
                                               
                                               displayText = removeDuplicateFinalSentence(displayText);
                                               displayText = normalizeMarkdownListItems(displayText);
+                                              displayText = cleanUrlText(displayText);
                                               return displayText;
                                             })()}
                                           </ReactMarkdown>
@@ -3092,7 +3116,7 @@ export default function Home() {
                                         aria-expanded={isExpanded}
                                       >
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-lg md:text-xl md:font-medium text-slate-900 md:text-card-foreground group-hover:text-primary transition-colors truncate">
+                                          <p className="text-lg md:font-medium text-slate-900 md:text-card-foreground group-hover:text-primary transition-colors truncate card-name-desktop">
                                             {rec.credit_card_name}
                                           </p>
                                         </div>
@@ -3437,6 +3461,7 @@ export default function Home() {
                                         
                                         displayText = removeDuplicateFinalSentence(displayText);
                                         displayText = normalizeMarkdownListItems(displayText);
+                                        displayText = cleanUrlText(displayText);
                                         return displayText;
                                       })()}
                                     </ReactMarkdown>
@@ -3683,15 +3708,13 @@ export default function Home() {
                   {/* Carousel for mobile */}
                   <div 
                     ref={suggestionsCarouselRef}
-                    className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 px-4 -mx-4 bg-slate-50/50 rounded-lg py-3"
+                    className="flex overflow-x-auto snap-x snap-mandatory scrollbar-thin gap-3 px-4 -mx-4 bg-slate-50/50 rounded-lg py-3"
                     style={{
                       WebkitOverflowScrolling: 'touch',
                       scrollBehavior: 'smooth',
                       overscrollBehaviorX: 'contain',
                       scrollSnapType: 'x mandatory',
                       scrollPadding: '0 1rem',
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none',
                       WebkitScrollSnapType: 'x mandatory',
                       scrollSnapStop: 'normal',
                       willChange: 'scroll-position',
@@ -4021,7 +4044,7 @@ export default function Home() {
                                 className="w-full px-2 py-3 flex items-center justify-between gap-4 text-left"
                               >
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="text-base font-semibold text-foreground leading-tight truncate">
+                                  <h3 className="text-base card-name-desktop font-semibold text-foreground leading-tight truncate">
                                     {cardName}
                                   </h3>
                                 </div>
