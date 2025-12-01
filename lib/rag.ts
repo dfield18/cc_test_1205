@@ -250,6 +250,17 @@ IMPORTANT: Include ALL relevant information about the card. Make it comprehensiv
     const responseText = completion.choices[0]?.message?.content || '{}';
     const response = JSON.parse(responseText);
     
+    // Clean duplicate card names from summary immediately after parsing
+    let summary = response.summary || `Information about ${cardData.credit_card_name}`;
+    summary = summary.split('\n').map(line => {
+      // Match: any text, 2+ asterisks, same text, then anything after
+      return line.replace(/([^\*]+?)\*{2,}\1(\s*.*)$/gi, (match, p1, p2) => {
+        const cardName = p1.trim();
+        const afterText = p2.trim();
+        return afterText ? `${cardName} ${afterText}` : cardName;
+      });
+    }).join('\n');
+    
     // Create recommendation object for the specific card
     const recommendation: Recommendation = {
       credit_card_name: response.card_name || cardData.credit_card_name,
@@ -270,7 +281,7 @@ IMPORTANT: Include ALL relevant information about the card. Make it comprehensiv
     
     return {
       recommendations: [recommendation],
-      summary: response.summary || `Here's information about ${cardData.credit_card_name}.`,
+      summary: summary,
       rawModelAnswer: responseText,
       title: title,
     };
@@ -862,28 +873,29 @@ export async function generateRecommendations(
     // Step 5: Call LLM with RAG context
     console.log('Calling LLM for recommendations...');
     // Prompt that generates a conversational, markdown-formatted response with structured card listings
-    const systemPrompt = `You MUST return valid JSON with exactly this structure:
+    const systemPrompt = `You are a credit card recommendation assistant. You MUST return valid JSON with exactly this structure:
 {
-  "summary": "A well-structured markdown-formatted response with:\n1. Brief personalized opening (1 sentence) acknowledging the user's question\n2. Each card on a separate line as: - **Card Name** (as markdown link [Card Name](url)) - brief 1-2 sentence description\n3. Each card must be on its own line with a blank line between cards\n4. Brief closing (1 sentence) summarizing key takeaway\n\nUse markdown: **bold** for emphasis, proper line breaks, markdown list syntax (-), keep it conversational and warm. NO subheadings - go directly from opening sentence to list items. Each card MUST be on a separate line.",
+  "summary": "A markdown-formatted response with:\n1. ONE sentence preface introducing the recommendations\n2. Three cards listed, each on its own line with format: - **[Card Name](url)** - brief description (5-15 words)\n3. Each card description should explain how it addresses the user's question/need\n\nFormat example:\nBased on your needs, here are three credit cards that could work well for you.\n\n- **[Chase Sapphire Preferred](https://example.com)** - Earns 2x points on travel and dining with a generous welcome bonus\n- **[Capital One Venture](https://example.com)** - Simple flat-rate rewards perfect for frequent travelers\n- **[Amex Gold Card](https://example.com)** - Excellent for dining and groceries with 4x points on both",
   "cards": [
-    {"credit_card_name": "Exact card name from candidate cards", "apply_url": "URL from candidate cards", "reason": "Brief 1-2 sentence description of why this card fits", "card_summary": "A concise 1-2 sentence summary of this card's key value proposition", "card_highlights": "Highlight 1\\nHighlight 2\\nHighlight 3"},
-    {"credit_card_name": "Another card name", "apply_url": "Another URL", "reason": "Brief description", "card_summary": "Summary text", "card_highlights": "Highlight 1\\nHighlight 2\\nHighlight 3"}
+    {"credit_card_name": "Exact card name from candidate cards", "apply_url": "URL from candidate cards", "reason": "Brief 5-15 word description of how this card addresses the user's question/need", "card_summary": "A concise 1-2 sentence summary of this card's key value proposition", "card_highlights": "Highlight 1\\nHighlight 2\\nHighlight 3"},
+    {"credit_card_name": "Another card name", "apply_url": "Another URL", "reason": "Brief 5-15 word description", "card_summary": "Summary text", "card_highlights": "Highlight 1\\nHighlight 2\\nHighlight 3"},
+    {"credit_card_name": "Third card name", "apply_url": "Third URL", "reason": "Brief 5-15 word description", "card_summary": "Summary text", "card_highlights": "Highlight 1\\nHighlight 2\\nHighlight 3"}
   ]
 }
 
-CRITICAL: 
+CRITICAL REQUIREMENTS: 
 - The "cards" array MUST contain exactly 3 cards (no more, no less)
 - Use EXACT card names from the candidate cards provided
 - Use EXACT URLs from the candidate cards provided
-- The summary MUST be in markdown format with:
-  1. Opening sentence (1 sentence only) acknowledging user's situation
-  2. Each card on its own line as: - **[Card Name](url)** - description (NO subheading before the cards)
-  3. Each card must be separated by a blank line (double line break)
-  4. Closing sentence (1 sentence only)
-- Always list ALL individual cards from the cards array in the summary
-- Make it conversational, warm, and visually structured
-- CRITICAL: Each card MUST be on a separate line with proper spacing
-- CRITICAL: Each card name should appear ONLY ONCE per listing. Use format - **[Card Name](url)** - description. DO NOT repeat card names like - **Card Name**Card Name or - **Card Name**[Card Name](url).`;
+- The summary MUST follow this exact format:
+  1. ONE sentence preface (no more, no less)
+  2. Blank line
+  3. Three cards, each on its own line: - **[Card Name](url)** - description (5-15 words)
+  4. Each card description must explain how it addresses the user's specific question/need
+- The card name appears ONLY ONCE - inside the markdown link [Card Name](url), wrapped in bold **
+- DO NOT repeat card names anywhere else
+- Keep descriptions concise: 5-15 words per card
+- Make it conversational and warm`;
 
     // Build conversation history for context
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -907,21 +919,34 @@ CRITICAL:
 Candidate cards:
 ${context}
 
-Create a conversational, well-structured markdown response that:
-1. Starts with a brief personalized opening (1 sentence only) acknowledging their question
-2. Lists each card on a separate line as: - **[Card Name](url)** - 1-2 sentence description
-   IMPORTANT: Use ONLY the markdown link format [Card Name](url) wrapped in bold **. DO NOT repeat the card name outside the link.
-3. Each card MUST be on its own line with a blank line between cards (double line break)
-4. Ends with a brief closing (1 sentence only) summarizing key takeaway
+Create a markdown-formatted response with this EXACT structure:
 
-ALWAYS list ALL individual cards from your recommendations in the summary using the format: - **[Card Name](url)** - description
-CRITICAL: Each card name should appear ONLY ONCE per card listing. Use the format - **[Card Name](url)** - description, NOT - **Card Name**Card Name or - **Card Name**[Card Name](url).
+1. ONE sentence preface that introduces the recommendations (acknowledge the user's question/need)
+2. Blank line
+3. Three cards, each on its own line with this format:
+   - **[Card Name](url)** - brief description (5-15 words explaining how this card addresses the user's question/need)
 
-For each card in the "cards" array, you MUST include:
+EXAMPLE FORMAT:
+Based on your travel needs, here are three credit cards that could work well for you.
+
+- **[Chase Sapphire Preferred](https://chase.com/sapphire)** - Earns 2x points on travel and dining with a generous welcome bonus
+- **[Capital One Venture](https://capitalone.com/venture)** - Simple flat-rate rewards perfect for frequent travelers  
+- **[Amex Gold Card](https://amex.com/gold)** - Excellent for dining and groceries with 4x points on both
+
+CRITICAL RULES:
+- Card name appears ONLY ONCE: inside the markdown link [Card Name](url), wrapped in bold **
+- Each description must be 5-15 words
+- Each description must explain how the card addresses the user's specific question/need
+- Use EXACT card names and URLs from the candidate cards provided
+- DO NOT repeat card names outside the link
+- DO NOT add closing sentences or additional text after the three cards
+
+For each card in the "cards" array, include:
+- "reason": Brief 5-15 word description of how this card addresses the user's question/need
 - "card_summary": A concise 1-2 sentence summary of the card's key value proposition
 - "card_highlights": A newline-separated list of 3-5 key highlights/benefits (one per line, no bullets or dashes)
 
-Then recommend exactly 3 cards (the best 3). Return JSON with the formatted markdown summary.`;
+Select the best 3 cards from the candidates and return JSON with the formatted markdown summary.`;
     
     messages.push({ role: 'user', content: userPrompt });
 
@@ -942,7 +967,142 @@ Then recommend exactly 3 cards (the best 3). Return JSON with the formatted mark
     try {
       const parsed = JSON.parse(rawAnswer);
       const recommendations: Recommendation[] = parsed.cards || [];
-      const summary = parsed.summary || '';
+      let summary = parsed.summary || '';
+      
+      // Clean duplicate card names from summary immediately after parsing
+      // This catches patterns like "CardName****CardName - description"
+      
+      // FIRST: Simple replacement - replace any sequence of 2+ asterisks with a space
+      // This handles patterns like "CardName****CardName" -> "CardName CardName"
+      let cleanedSummary = summary.replace(/\*{2,}/g, ' ');
+      
+      // Then remove duplicate card names that result from the replacement above
+      // Remove patterns like "CardName CardName" -> "CardName"
+      if (recommendations.length > 0) {
+        recommendations.forEach((rec: any) => {
+          const cardName = rec.credit_card_name;
+          const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          
+          // Pattern: CardName CardName (with space between) followed by optional description
+          const duplicateWithSpace = new RegExp(`([-•]?\\s*)(${escapedCardName})\\s+\\2(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          cleanedSummary = cleanedSummary.replace(duplicateWithSpace, (match, prefix, p1, p2) => {
+            const afterText = p2.trim();
+            const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+            console.log(`[BACKEND] Removed duplicate after asterisk replacement: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+            return result;
+          });
+        });
+        
+        // General pattern: Remove any duplicate text separated by space (for card names)
+        cleanedSummary = cleanedSummary.replace(/([-•]?\s*)([a-zA-Z0-9\s®™©]{3,50}?)\s+\2(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, prefix, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          if (cardName.length > 3 && cardName.length < 50) {
+            const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+            console.log(`[BACKEND GENERAL] Removed duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+            return result;
+          }
+          return match;
+        });
+      }
+      
+      if (recommendations.length > 0) {
+        recommendations.forEach((rec: any) => {
+          const cardName = rec.credit_card_name;
+          const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          
+          // Pattern 1: CardName****CardName - description (most common issue)
+          // Remove the $ anchor to match anywhere in the line, not just at the end
+          const duplicatePattern = new RegExp(`(${escapedCardName})\\*{2,}\\1(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          cleanedSummary = cleanedSummary.replace(duplicatePattern, (match, p1, p2) => {
+            const afterText = p2.trim();
+            console.log(`[CLEANING FIRST PASS] Found duplicate: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+            return afterText ? `${cardName} ${afterText}` : cardName;
+          });
+          
+          // Pattern 2: CardName****CardName (without description, at start of line or after bullet)
+          // This specifically handles list items like "- CardName****CardName - description"
+          const duplicatePatternStart = new RegExp(`([-•]?\\s*)(${escapedCardName})\\*{2,}\\2(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gim');
+          cleanedSummary = cleanedSummary.replace(duplicatePatternStart, (match, prefix, p1, p2) => {
+            const afterText = p2.trim();
+            const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+            console.log(`[CLEANING FIRST PASS START] Found duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+            return result;
+          });
+          
+          // Pattern 3: **CardName**CardName - description
+          const boldDuplicatePattern = new RegExp(`\\*\\*${escapedCardName}\\*\\*${escapedCardName}(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          cleanedSummary = cleanedSummary.replace(boldDuplicatePattern, (match, p1) => {
+            console.log(`[CLEANING FIRST PASS BOLD] Found duplicate: "${match.substring(0, 100)}" -> "**${cardName}**${p1}"`);
+            return `**${cardName}**${p1}`;
+          });
+        });
+      }
+      
+      // Also do a general pass to catch any camelCase or lowercase duplicates that might not match exact card names
+      // This catches patterns like "cashRewards****cashRewards" even if the card name in data is "Cash Rewards"
+      // Also catches patterns with spaces and special characters like "Citi Custom Cash® Card****Citi Custom Cash® Card"
+      // Remove the $ anchor to match anywhere, not just at end of line
+      cleanedSummary = cleanedSummary.replace(/([a-zA-Z0-9\s®™©]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gim, (match, p1, p2) => {
+        const cardName = p1.trim();
+        const afterText = p2.trim();
+        // Only process if it looks like a card name (more than 3 characters to avoid false positives, less than 100 to avoid matching entire lines)
+        if (cardName.length > 3 && cardName.length < 100) {
+          console.log(`[CLEANING GENERAL FIRST PASS] Found duplicate: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+          return afterText ? `${cardName} ${afterText}` : cardName;
+        }
+        return match;
+      });
+      
+      // Then use general patterns to catch any remaining duplicates
+      summary = cleanedSummary.split('\n').map(line => {
+        // Pattern 1: Match any sequence of characters (alphanumeric, spaces, special chars) followed by 2+ asterisks and the same sequence
+        // This catches patterns like "cashRewards****cashRewards" and "Citi Custom Cash® Card****Citi Custom Cash® Card"
+        // The pattern matches: (text) followed by ** or more, followed by the same (text)
+        // Use non-greedy matching and lookahead to match anywhere in the line
+        let cleaned = line.replace(/([a-zA-Z0-9\s®™©]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          // Only process if it looks like a card name (more than 2 characters to avoid false positives, less than 100 to avoid matching entire lines)
+          if (cardName.length > 2 && cardName.length < 100) {
+            console.log(`[CLEANING GENERAL] Found duplicate pattern: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+            return afterText ? `${cardName} ${afterText}` : cardName;
+          }
+          return match;
+        });
+        
+        // Pattern 1b: More specific - catch camelCase or word sequences without spaces
+        // This handles cases like "cashRewards****cashRewards" more reliably
+        cleaned = cleaned.replace(/([a-zA-Z0-9]+)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          // Only process if it looks like a card name (more than 3 characters)
+          if (cardName.length > 3 && cardName.length < 100) {
+            console.log(`[CLEANING CAMELCASE] Found duplicate pattern: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+            return afterText ? `${cardName} ${afterText}` : cardName;
+          }
+          return match;
+        });
+        
+        // Pattern 2: Handle cases where card name might be in bold markdown: **CardName**CardName
+        cleaned = cleaned.replace(/\*\*([^*]+?)\*\*\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          return afterText ? `**${cardName}** ${afterText}` : `**${cardName}**`;
+        });
+        
+        return cleaned;
+      }).join('\n');
+      
+      // Final safety net: Remove any remaining '****' patterns that might have slipped through
+      // This catches any pattern like "text****text" and removes the duplicate
+      summary = summary.replace(/([^\*]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match: string, p1: string, p2: string) => {
+        const text = p1.trim();
+        const afterText = p2.trim();
+        return afterText ? `${text} ${afterText}` : text;
+      });
+      // Also catch any standalone '****' sequences and replace with space
+      summary = summary.replace(/\*{2,}/g, ' ');
       
       console.log('Parsed recommendations count:', recommendations.length);
       console.log('Summary:', summary);
@@ -1058,6 +1218,46 @@ Then recommend exactly 3 cards (the best 3). Return JSON with the formatted mark
         });
       }
       
+      // Clean summary again before checking if we need to rebuild
+      // This ensures any duplicates are removed before we check for missing cards
+      // FIRST: Replace any sequence of 2+ asterisks with a space
+      summary = summary.replace(/\*{2,}/g, ' ');
+      
+      // Then remove duplicate card names
+      if (finalRecommendations.length > 0) {
+        finalRecommendations.forEach((rec: any) => {
+          const cardName = rec.credit_card_name;
+          const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          
+          // Pattern: CardName CardName (with space between) followed by optional description
+          const duplicateWithSpace = new RegExp(`([-•]?\\s*)(${escapedCardName})\\s+\\2(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          summary = summary.replace(duplicateWithSpace, (match, prefix, p1, p2) => {
+            const afterText = p2.trim();
+            const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+            console.log(`[BACKEND BEFORE REBUILD] Removed duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+            return result;
+          });
+        });
+      }
+      
+      summary = summary.split('\n').map(line => {
+        // Aggressively remove duplicate card names with asterisks
+        // Use lookahead instead of $ anchor to match anywhere in the line
+        let cleaned = line.replace(/([^\*]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          console.log(`[CLEANING BEFORE REBUILD CHECK] Found duplicate: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+          return afterText ? `${cardName} ${afterText}` : cardName;
+        });
+        // Also handle bold markdown duplicates
+        cleaned = cleaned.replace(/\*\*([^*]+?)\*\*\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+          const cardName = p1.trim();
+          const afterText = p2.trim();
+          return afterText ? `**${cardName}** ${afterText}` : `**${cardName}**`;
+        });
+        return cleaned;
+      }).join('\n');
+      
       // Ensure all cards are included in the summary with proper formatting
       // If summary doesn't contain all cards as bullet points, rebuild it
       let finalSummary = summary;
@@ -1070,40 +1270,176 @@ Then recommend exactly 3 cards (the best 3). Return JSON with the formatted mark
         }).length;
         
         // If not all cards are present, or if summary doesn't have proper bullet format, rebuild it
-        const hasBulletPoints = summary.includes('•');
+        const hasBulletPoints = summary.includes('-') || summary.includes('•');
         if (cardsInSummary < finalRecommendations.length || !hasBulletPoints) {
           console.log('Rebuilding summary to ensure all cards are displayed with proper formatting...');
           
           // Try to extract opening sentence from summary (first sentence only)
           const sentences = summary.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
-          let openingParagraph = '';
+          let openingSentence = '';
           if (sentences.length >= 1) {
-            openingParagraph = sentences[0].trim() + '.';
+            openingSentence = sentences[0].trim() + '.';
           } else {
             // Fallback: generate one
-            openingParagraph = `Based on your needs, here are some credit cards that could be a great fit for you.`;
+            openingSentence = `Based on your needs, here are three credit cards that could work well for you.`;
           }
           
           // Build cards list with proper markdown formatting - each on separate line
+          // Format: - **[Card Name](url)** - description (5-15 words)
           const cardsText = finalRecommendations.map(rec => 
             `- **[${rec.credit_card_name}](${rec.apply_url})** - ${rec.reason}`
           ).join('\n\n');
           
-          // Extract or generate closing recap (1 sentence only)
-          let closingRecap = '';
-          if (sentences.length > cardsInSummary + 1) {
-            // Try to use last sentence as closing
-            closingRecap = sentences[sentences.length - 1].trim() + '.';
-          } else {
-            closingRecap = 'Consider comparing these options to find the best match.';
-          }
-          
-          finalSummary = openingParagraph + '\n\n' + cardsText + '\n\n' + closingRecap;
+          // New format: ONE sentence preface, blank line, then three cards (no closing sentence)
+          finalSummary = openingSentence + '\n\n' + cardsText;
+        } else {
+          // Even if we're not rebuilding, clean the summary one more time to be safe
+          finalSummary = summary.split('\n').map(line => {
+            // Use lookahead instead of $ anchor to match anywhere in the line
+            return line.replace(/([^\*]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+              const cardName = p1.trim();
+              const afterText = p2.trim();
+              console.log(`[CLEANING NOT REBUILDING] Found duplicate: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+              return afterText ? `${cardName} ${afterText}` : cardName;
+            });
+          }).join('\n');
         }
       }
       
+      // Final cleaning pass using actual card names from recommendations
+      // This is the last chance to catch any duplicates before returning
+      if (finalRecommendations.length > 0) {
+        finalRecommendations.forEach(rec => {
+          const cardName = rec.credit_card_name;
+          const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          
+          // Pattern 1: CardName****CardName - description
+          // Use lookahead instead of $ anchor to match anywhere, not just at end of line
+          const duplicatePattern = new RegExp(`(${escapedCardName})\\*{2,}\\1(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(duplicatePattern, (match, p1, p2) => {
+            const afterText = p2.trim();
+            console.log(`[CLEANING FINAL] Found duplicate: "${match.substring(0, 100)}" -> "${cardName}${afterText ? ' ' + afterText : ''}"`);
+            return afterText ? `${cardName} ${afterText}` : cardName;
+          });
+          
+          // Pattern 2: **CardName**CardName - description  
+          const boldDuplicatePattern = new RegExp(`\\*\\*${escapedCardName}\\*\\*${escapedCardName}(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(boldDuplicatePattern, (match, p1) => {
+            console.log(`[CLEANING FINAL BOLD] Found bold duplicate: "${match.substring(0, 100)}" -> "**${cardName}**${p1}"`);
+            return `**${cardName}**${p1}`;
+          });
+          
+          // Pattern 3: **[Card Name](url)**Card Name - description (card name after link)
+          const linkAfterPattern = new RegExp(`\\*\\*\\[${escapedCardName}\\]\\([^)]+\\)\\*\\*${escapedCardName}(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(linkAfterPattern, (match, p1) => {
+            // Extract the URL from the match
+            const urlMatch = match.match(/\[.*?\]\((.*?)\)/);
+            const url = urlMatch ? urlMatch[1] : '';
+            const afterText = p1.trim();
+            console.log(`[CLEANING FINAL LINK+NAME] Found link+name duplicate: "${match.substring(0, 100)}" -> "**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}"`);
+            return `**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}`;
+          });
+          
+          // Pattern 4: **Card Name**[Card Name](url) - description (card name before link)
+          const linkBeforePattern = new RegExp(`\\*\\*${escapedCardName}\\*\\*\\[${escapedCardName}\\]\\([^)]+\\)(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(linkBeforePattern, (match, p1) => {
+            // Extract the URL from the match
+            const urlMatch = match.match(/\[.*?\]\((.*?)\)/);
+            const url = urlMatch ? urlMatch[1] : '';
+            const afterText = p1.trim();
+            console.log(`[CLEANING FINAL NAME+LINK] Found name+link duplicate: "${match.substring(0, 100)}" -> "**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}"`);
+            return `**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}`;
+          });
+          
+          // Pattern 5: Card Name**[Card Name](url)** - description (card name before bold link)
+          const nameBeforeBoldLinkPattern = new RegExp(`${escapedCardName}\\*\\*\\[${escapedCardName}\\]\\([^)]+\\)\\*\\*(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(nameBeforeBoldLinkPattern, (match, p1) => {
+            const urlMatch = match.match(/\[.*?\]\((.*?)\)/);
+            const url = urlMatch ? urlMatch[1] : '';
+            const afterText = p1.trim();
+            console.log(`[CLEANING FINAL NAME BEFORE BOLD] Found name before bold link duplicate: "${match.substring(0, 100)}" -> "**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}"`);
+            return `**[${cardName}](${url})**${afterText ? ' ' + afterText : ''}`;
+          });
+        });
+      }
+      
+      // Final safety net: Replace any remaining asterisks and remove duplicates
+      // Replace any sequence of 2+ asterisks with a space first
+      finalSummary = finalSummary.replace(/\*{2,}/g, ' ');
+      
+      // Then remove duplicate card names that result from the replacement
+      if (finalRecommendations.length > 0) {
+        finalRecommendations.forEach(rec => {
+          const cardName = rec.credit_card_name;
+          const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          
+          // Pattern: CardName CardName (with space between) followed by optional description
+          const duplicateWithSpace = new RegExp(`([-•]?\\s*)(${escapedCardName})\\s+\\2(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+          finalSummary = finalSummary.replace(duplicateWithSpace, (match, prefix, p1, p2) => {
+            const afterText = p2.trim();
+            const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+            console.log(`[CLEANING FINAL SAFETY NET] Removed duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+            return result;
+          });
+        });
+      }
+      
+      // General catch-all: Remove any text pattern that looks like "CardName****CardName"
+      // This catches duplicates even if the card name doesn't exactly match our recommendations
+      finalSummary = finalSummary.replace(/([-•]?\s*)([a-zA-Z0-9\s®™©]{3,50}?)\*{2,}\2(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, prefix, p1, p2) => {
+        const cardName = p1.trim();
+        const afterText = p2.trim();
+        // Only process if it looks like a card name (more than 3 characters, less than 50)
+        if (cardName.length > 3 && cardName.length < 50) {
+          const result = `${prefix || ''}${cardName}${afterText ? ' ' + afterText : ''}`;
+          console.log(`[CLEANING GENERAL SAFETY NET] Found duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+          return result;
+        }
+        return match;
+      });
+      
+      // One more aggressive pass: line-by-line cleaning for any remaining duplicates
+      // This catches cases where the card name appears both inside and outside the markdown link
+      finalSummary = finalSummary.split('\n').map(line => {
+        if (finalRecommendations.length > 0) {
+          for (const rec of finalRecommendations) {
+            const cardName = rec.credit_card_name;
+            const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            
+            // Count how many times the card name appears (case-insensitive)
+            const nameRegex = new RegExp(escapedCardName, 'gi');
+            const nameMatches = line.match(nameRegex);
+            
+            // If the card name appears more than once, we need to clean it
+            if (nameMatches && nameMatches.length > 1) {
+              // Try to find a markdown link with this card name
+              const linkRegex = new RegExp(`\\[${escapedCardName}\\]\\(([^)]+)\\)`, 'gi');
+              const linkMatch = line.match(linkRegex);
+              
+              if (linkMatch && linkMatch.length > 0) {
+                // Extract the URL from the first link match
+                const urlMatch = linkMatch[0].match(/\[.*?\]\((.*?)\)/);
+                const url = urlMatch ? urlMatch[1] : rec.apply_url || '';
+                
+                // Find the description part (everything after the card name/link)
+                const descriptionMatch = line.match(/[-–—]\s*(.+)$/);
+                const description = descriptionMatch ? descriptionMatch[1].trim() : '';
+                
+                // Reconstruct the line with proper format, keeping only the link version
+                const cleaned = `- **[${cardName}](${url})**${description ? ' - ' + description : ''}`;
+                console.log(`[CLEANING LINE] Removed duplicate: "${line.substring(0, 100)}..." -> "${cleaned}"`);
+                return cleaned;
+              }
+            }
+          }
+        }
+        return line;
+      }).join('\n');
+      
       // Generate a short title for the recommendations
       const title = await generateRecommendationTitle(userQuery);
+      
+      console.log('[FINAL] Summary after all cleaning:', finalSummary.substring(0, 500));
       
       return {
         recommendations: finalRecommendations,

@@ -251,6 +251,40 @@ export default function Home() {
     if (!text) return text;
     let cleaned = text;
     
+    // FIRST: Simple replacement - replace any sequence of 2+ asterisks with a space
+    // This handles patterns like "CardName****CardName" -> "CardName CardName"
+    cleaned = cleaned.replace(/\*{2,}/g, ' ');
+    
+    // Then remove duplicate card names that result from the replacement above
+    // Remove patterns like "CardName CardName" -> "CardName"
+    if (recommendations && recommendations.length > 0) {
+      recommendations.forEach((rec) => {
+        const cardName = rec.credit_card_name;
+        const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Pattern: CardName CardName (with space between) followed by optional description
+        const duplicateWithSpace = new RegExp(`(${escapedCardName})\\s+\\1(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+        cleaned = cleaned.replace(duplicateWithSpace, (match, p1, p2) => {
+          const afterText = p2.trim();
+          const result = afterText ? `${p1} ${afterText}` : p1;
+          console.log(`[FRONTEND] Removed duplicate after asterisk replacement: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+          return result;
+        });
+      });
+      
+      // General pattern: Remove any duplicate text separated by space (for card names)
+      cleaned = cleaned.replace(/([a-zA-Z0-9\s®™©]{3,50}?)\s+\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+        const cardName = p1.trim();
+        const afterText = p2.trim();
+        if (cardName.length > 3 && cardName.length < 50) {
+          const result = afterText ? `${cardName} ${afterText}` : cardName;
+          console.log(`[FRONTEND GENERAL] Removed duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+          return result;
+        }
+        return match;
+      });
+    }
+    
     // First, use recommendations to do direct string replacement for known card names
     // This is the most reliable approach
     if (recommendations && recommendations.length > 0) {
@@ -277,8 +311,21 @@ export default function Home() {
         const standaloneDuplicatePattern = new RegExp(`([\\s\\n]+)(${escapedCardName})([\\s\\n]+)\\2([\\s\\n]*)`, 'gi');
         cleaned = cleaned.replace(standaloneDuplicatePattern, '$1$2$3');
         
-        // Pattern 5: Card name followed by asterisks followed by same card name
-        const duplicatePattern1 = new RegExp(`(${escapedCardName})\\*{2,}\\1`, 'gi');
+        // Pattern 4.5: PRIORITY - Handle card name with asterisks and same card name with text after (must run before Pattern 5)
+        // This catches: "Huntington Cashback****Huntington Cashback - description" -> "Huntington Cashback - description"
+        // Also catches: "- American Express Green Card****American Express Green Card - Ideal for travelers..."
+        // Must run before Pattern 5 to preserve the description text
+        const duplicateWithTextAfterPriority = new RegExp(`([-•]?\\s*)(${escapedCardName})\\*{2,}\\2(\\s*[-–—]?\\s*[^\\n]*)`, 'gi');
+        cleaned = cleaned.replace(duplicateWithTextAfterPriority, (match, prefix, p1, p2) => {
+          const afterText = p2.trim();
+          const result = afterText ? `${prefix || ''}${p1} ${afterText}` : `${prefix || ''}${p1}`;
+          console.log(`[FRONTEND CLEANING Pattern 4.5] Found: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+          return result;
+        });
+        
+        // Pattern 5: Card name followed by asterisks followed by same card name (no text after)
+        // Only match if there's no text after (end of line or newline)
+        const duplicatePattern1 = new RegExp(`(${escapedCardName})\\*{2,}\\1(?=\\s*$|\\s*\\n|$)`, 'gi');
         cleaned = cleaned.replace(duplicatePattern1, '$1');
         
         // Pattern 6: Card name with optional whitespace around asterisks
@@ -332,8 +379,45 @@ export default function Home() {
         // This is a catch-all for patterns like "cardName****cardName anything else"
         const duplicateKeepAfter = new RegExp(`(${escapedCardName})\\*{2,}\\1(\\s+)`, 'gi');
         cleaned = cleaned.replace(duplicateKeepAfter, '$1$2');
+        
+        // Pattern 15: Handle card name with 2+ asterisks and same card name, keeping everything after (more aggressive)
+        // This catches: "Visa Signature® Flagship Rewards****Visa Signature® Flagship Rewards - description"
+        // Works with any text after, including descriptions starting with dashes
+        // Also handles list items: "- CardName****CardName - description"
+        const duplicateWithAnyTextAfter = new RegExp(`([-•]?\\s*)(${escapedCardName})\\*{2,}\\2(\\s*[-–—]?\\s*.*?)(?=\\n|$)`, 'gi');
+        cleaned = cleaned.replace(duplicateWithAnyTextAfter, (match, prefix, p1, p2) => {
+          // prefix is optional bullet/dash, p1 is the card name, p2 is everything after (including dash and description)
+          const afterText = p2.trim();
+          const result = afterText ? `${prefix || ''}${p1} ${afterText}` : `${prefix || ''}${p1}`;
+          console.log(`[FRONTEND CLEANING Pattern 15] Found: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+          return result;
+        });
+        
+        // Pattern 15b: Final safety net - catch any remaining card name with asterisks followed by same name
+        // Only match if there are 2+ asterisks (to avoid false positives with single asterisks)
+        // This is a catch-all for any patterns that slipped through
+        const duplicateCatchAll = new RegExp(`(${escapedCardName})\\*{2,}\\1(?!\\*)`, 'gi');
+        cleaned = cleaned.replace(duplicateCatchAll, (match) => {
+          console.log(`[FRONTEND CLEANING Pattern 15b] Removed remaining duplicate: "${match.substring(0, 100)}"`);
+          return cardName;
+        });
       });
     }
+    
+    // General catch-all pattern: Remove any card name followed by 2+ asterisks and the same name
+    // This catches patterns that might not have been caught by the specific patterns above
+    // Pattern: "Any text****Any text" where the text looks like a card name (3+ chars, alphanumeric + spaces)
+    cleaned = cleaned.replace(/([a-zA-Z0-9\s®™©]{3,50}?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+      const cardName = p1.trim();
+      const afterText = p2.trim();
+      // Only process if it looks like a card name (more than 3 characters, less than 50)
+      if (cardName.length > 3 && cardName.length < 50) {
+        const result = afterText ? `${cardName} ${afterText}` : cardName;
+        console.log(`[FRONTEND CLEANING GENERAL] Found duplicate: "${match.substring(0, 100)}" -> "${result.substring(0, 100)}"`);
+        return result;
+      }
+      return match;
+    });
     
     // Final pass: Remove duplicate card names that appear on their own lines
     // This handles cases where a card name appears multiple times as standalone lines
@@ -396,24 +480,49 @@ export default function Home() {
     // These patterns handle cases where the card name isn't in the recommendations list
     // Process line by line to avoid cross-line matches and handle duplicates properly
     
+    // Pattern 0: PRIORITY - Aggressively catch "CardName****CardName - description" pattern first
+    // This must run before other patterns to preserve descriptions
+    // This handles: "Huntington Cashback****Huntington Cashback - description" -> "Huntington Cashback - description"
+    cleaned = cleaned.split('\n').map(line => {
+      // Match: any text (including spaces, special chars), 2+ asterisks, same text, then anything after
+      // Use [^\*]+? to match any characters except asterisks (non-greedy)
+      const aggressivePattern = /([^\*]+?)\*{2,}\1(\s*.*)$/gi;
+      const result = line.replace(aggressivePattern, (match, p1, p2) => {
+        const cardName = p1.trim();
+        const afterText = p2.trim();
+        // Always preserve the text after the duplicate
+        return afterText ? `${cardName} ${afterText}` : cardName;
+      });
+      return result;
+    }).join('\n');
+    
     // Pattern 1: Match any sequence followed by 2+ asterisks and same sequence, keeping everything after on the same line
     // This handles: "cashRewards****cashRewards - description" -> "cashRewards - description"
+    // Also handles card names with special characters: "Visa Signature® Flagship Rewards****Visa Signature® Flagship Rewards - description"
+    // PRIORITY: This must run first to catch duplicates with text after
     cleaned = cleaned.split('\n').map(line => {
       // Match pattern: text****text (rest of line)
       // Capture the duplicate text and everything after it
-      return line.replace(/([A-Za-z0-9]+)\*{2,}\1(\s*.*)$/gi, (match, p1, p2) => {
+      // Use [^\*]+ to match any characters except asterisks (handles spaces, special chars like ®)
+      // Make it non-greedy and match the full line to catch all cases
+      const result = line.replace(/([^\*]+?)\*{2,}\1(\s*.*)$/gi, (match, p1, p2) => {
         // p1 is the duplicate text, p2 is everything after (including spaces and dashes)
         const afterText = p2.trim();
-        return afterText ? p1 + (afterText.startsWith('-') || afterText.startsWith('–') || afterText.startsWith('—') ? ' ' + afterText : ' ' + afterText) : p1;
+        const trimmedP1 = p1.trim();
+        // Always preserve the text after, just remove the duplicate and asterisks
+        return afterText ? `${trimmedP1} ${afterText}` : trimmedP1;
       });
+      return result;
     }).join('\n');
     
     // Pattern 2: Match any word characters followed by 2+ asterisks and same word (standalone, no text after)
     cleaned = cleaned.replace(/(\w+)\*{2,}\1(?=\s*$|\s*\n|\s*\[|\s*\(|$)/gi, '$1');
     
-    // Pattern 3: Match text with spaces, quotes, hyphens (more complex card names) - process line by line
+    // Pattern 3: Match text with spaces, quotes, hyphens, special chars (more complex card names) - process line by line
+    // This handles card names with special characters like ®, ™, ©, spaces, etc.
     cleaned = cleaned.split('\n').map(line => {
-      return line.replace(/([A-Za-z0-9\s"\-_]+)\*{2,}\1(\s*.*)$/gi, (match, p1, p2) => {
+      // Match any sequence of characters (including spaces, special chars) followed by 2+ asterisks and same sequence
+      return line.replace(/([A-Za-z0-9\s"\-_®™©]+)\*{2,}\1(\s*.*)$/gi, (match, p1, p2) => {
         const afterText = p2.trim();
         const trimmedP1 = p1.trim();
         return afterText ? trimmedP1 + (afterText.startsWith('-') || afterText.startsWith('–') || afterText.startsWith('—') ? ' ' + afterText : ' ' + afterText) : trimmedP1;
@@ -421,8 +530,10 @@ export default function Home() {
     }).join('\n');
     
     // Pattern 4: Handle whitespace around asterisks - process line by line
+    // This pattern is more permissive and handles card names with any characters including special chars
     cleaned = cleaned.split('\n').map(line => {
-      return line.replace(/([^\n\r\*]+)\s*\*{2,}\s*\1(\s*.*)$/g, (match, p1, p2) => {
+      // Match any non-asterisk characters (including special chars, spaces) followed by 2+ asterisks and same sequence
+      return line.replace(/([^\n\r\*]+?)\s*\*{2,}\s*\1(\s*.*)$/g, (match, p1, p2) => {
         const afterText = p2.trim();
         const trimmedP1 = p1.trim();
         return afterText ? trimmedP1 + (afterText.startsWith('-') || afterText.startsWith('–') || afterText.startsWith('—') ? ' ' + afterText : ' ' + afterText) : trimmedP1;
@@ -533,6 +644,40 @@ export default function Home() {
     } else {
       // If no recommendations, just remove the hyphen
       cleaned = cleaned.replace(/:\s*-\s*/g, ':');
+    }
+    
+    return cleaned;
+  };
+
+  const replaceColonWithHyphen = (text: string, recommendations?: Recommendation[]): string => {
+    if (!text) return text;
+    let cleaned = text;
+    
+    // Replace colons with hyphens after credit card names
+    // This handles patterns like "Card Name: $200..." -> "Card Name - $200..."
+    if (recommendations && recommendations.length > 0) {
+      recommendations.forEach((rec) => {
+        const cardName = rec.credit_card_name;
+        // Escape special regex characters in card name
+        const escapedCardName = cardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Pattern 1: Plain card name followed by colon (e.g., "Card Name: $200...")
+        // Match card name, optional whitespace, colon, optional whitespace, then text (usually starting with $ or number)
+        const plainPattern = new RegExp(`(${escapedCardName})\\s*:\\s+`, 'gi');
+        cleaned = cleaned.replace(plainPattern, '$1 - ');
+        
+        // Pattern 2: Card name in markdown bold followed by colon (e.g., "**Card Name**: $200...")
+        const boldPattern = new RegExp(`(\\*\\*${escapedCardName}\\*\\*)\\s*:\\s+`, 'gi');
+        cleaned = cleaned.replace(boldPattern, '$1 - ');
+        
+        // Pattern 3: Card name in markdown link followed by colon (e.g., "[Card Name](url): $200...")
+        const linkPattern = new RegExp(`(\\[${escapedCardName}\\]\\([^)]+\\))\\s*:\\s+`, 'gi');
+        cleaned = cleaned.replace(linkPattern, '$1 - ');
+        
+        // Pattern 4: Card name in markdown bold link followed by colon (e.g., "**[Card Name](url)**: $200...")
+        const boldLinkPattern = new RegExp(`(\\*\\*\\[${escapedCardName}\\]\\([^)]+\\)\\*\\*)\\s*:\\s+`, 'gi');
+        cleaned = cleaned.replace(boldLinkPattern, '$1 - ');
+      });
     }
     
     return cleaned;
@@ -3342,11 +3487,11 @@ export default function Home() {
                                                   {...props} 
                                                   target="_blank" 
                                                   rel="noopener noreferrer"
-                                                  className="text-primary font-semibold hover:text-primary/80 underline decoration-2 decoration-primary/30 hover:decoration-primary/50 transition-colors duration-200 break-words"
+                                                  className="text-primary font-normal hover:text-primary/80 underline decoration-2 decoration-primary/30 hover:decoration-primary/50 transition-colors duration-200 break-words"
                                                 />
                                               ),
                                               p: ({ ...props }) => (
-                                                <p className="mb-2 text-base text-foreground leading-relaxed break-words last:mb-0" {...props} />
+                                                <p className="mb-2 text-base text-black leading-relaxed break-words last:mb-0" {...props} />
                                               ),
                                               ul: ({ ...props }) => (
                                                 <ul className="list-none space-y-2.5 lg:space-y-4 my-2 last:mb-0 [&>li]:block [&>li]:w-full" {...props} />
@@ -3363,12 +3508,12 @@ export default function Home() {
                                                 
                                                 if (hasLink || hasLinkPattern) {
                                                   return (
-                                                    <li className="mb-2 lg:mb-4 block w-full text-lg font-semibold text-primary leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                                    <li className="mb-2 lg:mb-4 block w-full text-base text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
                                                   );
                                                 }
                                                 // Regular option description
                                                 return (
-                                                  <li className="mb-2 lg:mb-4 block w-full text-base text-foreground leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                                  <li className="mb-2 lg:mb-4 block w-full text-base text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
                                                 );
                                               },
                                             }}
@@ -3408,6 +3553,18 @@ export default function Home() {
                                               // Call again after all processing to catch any duplicates introduced
                                               displayText = removeDuplicateCardNames(displayText, message.recommendations);
                                               displayText = removeColonPeriod(displayText, message.recommendations);
+                                              displayText = replaceColonWithHyphen(displayText, message.recommendations);
+                                              
+                                              // Final safety net: Remove any remaining '****' patterns that might have slipped through
+                                              // This catches any pattern like "text****text" and removes the duplicate
+                                              displayText = displayText.replace(/([^\*]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+                                                const text = p1.trim();
+                                                const afterText = p2.trim();
+                                                return afterText ? `${text} ${afterText}` : text;
+                                              });
+                                              // Also catch any standalone '****' sequences and replace with space
+                                              displayText = displayText.replace(/\*{2,}/g, ' ');
+                                              
                                               return displayText;
                                             })()}
                                           </ReactMarkdown>
@@ -3748,11 +3905,11 @@ export default function Home() {
                                             {...props} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="text-teal-600 font-semibold hover:text-teal-700 underline decoration-2 decoration-teal-300 hover:decoration-teal-500 transition-colors duration-200"
+                                            className="text-teal-600 font-normal hover:text-teal-700 underline decoration-2 decoration-teal-300 hover:decoration-teal-500 transition-colors duration-200"
                                           />
                                         ),
                                         strong: ({ ...props }) => (
-                                          <strong className="font-semibold text-slate-900" {...props} />
+                                          <strong className="font-normal text-black" {...props} />
                                         ),
                                         h2: ({ ...props }) => (
                                           <h2 className="text-base font-semibold text-slate-900 mt-4 mb-3" {...props} />
@@ -3761,17 +3918,17 @@ export default function Home() {
                                           <h3 className="text-base font-semibold text-slate-900 mt-3 mb-2" {...props} />
                                         ),
                                         p: ({ ...props }) => (
-                                        <p className="mb-3 text-xl lg:text-2xl tracking-tight leading-[1.7] text-slate-700 break-words" {...props} />
+                                        <p className="mb-3 text-base leading-relaxed text-black break-words" {...props} />
                                         ),
                                         ul: ({ ...props }) => (
                                           <ul
-                                            className="list-disc pl-5 lg:pl-8 space-y-2.5 lg:space-y-4 my-3 text-slate-700 marker:text-teal-500 [&>li]:block [&>li]:w-full"
+                                            className="list-disc pl-5 lg:pl-8 space-y-2.5 lg:space-y-4 my-3 text-black marker:text-teal-500 [&>li]:block [&>li]:w-full"
                                             {...props}
                                           />
                                         ),
                                         li: ({ ...props }) => (
                                           <li
-                                            className="mb-3 lg:mb-4 block w-full text-xl lg:text-2xl tracking-tight leading-[1.7] text-slate-700 break-words pl-1 lg:pl-4 whitespace-normal"
+                                            className="mb-3 lg:mb-4 block w-full text-base leading-relaxed text-black break-words pl-1 lg:pl-4 whitespace-normal"
                                             style={{ display: 'block', clear: 'both', width: '100%' }}
                                             {...props}
                                           />
@@ -3814,6 +3971,7 @@ export default function Home() {
                                         // Call again after all processing to catch any duplicates introduced
                                         displayText = removeDuplicateCardNames(displayText, message.recommendations);
                                         displayText = removeColonPeriod(displayText, message.recommendations);
+                                        displayText = replaceColonWithHyphen(displayText, message.recommendations);
                                         return displayText;
                                       })()}
                                     </ReactMarkdown>
