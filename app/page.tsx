@@ -683,6 +683,66 @@ export default function Home() {
     return cleaned;
   };
 
+  // Ensure each card name appears only once in the entire text
+  // Only removes lines that are clearly card listings (list items, markdown links, etc.)
+  const ensureSingleCardNameOccurrence = (text: string, recommendations?: Recommendation[]): string => {
+    if (!text || !recommendations || recommendations.length === 0) return text;
+    
+    const lines = text.split('\n');
+    const seenCardNames = new Map<string, number>(); // Track first occurrence line index for each card
+    const cardNameMap = new Map<string, string>(); // Normalized -> Original card name
+    
+    // Build map of normalized card names
+    recommendations.forEach(rec => {
+      const normalized = rec.credit_card_name.toLowerCase().replace(/[®™©]/g, '').trim();
+      cardNameMap.set(normalized, rec.credit_card_name);
+    });
+    
+    const processedLines = lines.map((line, index) => {
+      const trimmedLine = line.trim();
+      const lineLower = trimmedLine.toLowerCase();
+      
+      // Only process lines that look like card listings:
+      // - Start with list marker (-, •, *)
+      // - Start with markdown link [Card Name]
+      // - Start with markdown bold **Card Name**
+      // - Are standalone lines (previous line was blank)
+      const isCardListing = /^[-•*]\s*/.test(trimmedLine) || 
+                           /^\[/.test(trimmedLine) || 
+                           /^\*\*/.test(trimmedLine) ||
+                           (index > 0 && lines[index - 1].trim() === '');
+      
+      if (!isCardListing) {
+        return line; // Keep non-listing lines as-is
+      }
+      
+      // Check if this line contains any card name
+      for (const [normalizedCardName, originalCardName] of cardNameMap.entries()) {
+        // Escape special regex characters
+        const escapedCardName = originalCardName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Check if line contains the card name (case-insensitive)
+        const cardNameRegex = new RegExp(escapedCardName.replace(/[®™©]/g, '[®™©]?'), 'i');
+        
+        if (cardNameRegex.test(trimmedLine)) {
+          if (seenCardNames.has(normalizedCardName)) {
+            // This card has already appeared - remove this duplicate listing
+            return '';
+          } else {
+            // First occurrence - keep it and mark as seen
+            seenCardNames.set(normalizedCardName, index);
+            return line;
+          }
+        }
+      }
+      
+      return line;
+    });
+    
+    // Filter out empty lines and rejoin
+    return processedLines.filter(line => line.trim() !== '').join('\n');
+  };
+
   const getRecommendationHighlight = (rec: Recommendation) => {
     const highlight =
       rec.reason ||
@@ -2987,12 +3047,12 @@ export default function Home() {
               <span className="hidden lg:inline">
                 <span className="text-primary">Find Your </span>
                 <span className="bg-gradient-to-r from-primary to-purple-light bg-clip-text text-transparent">Perfect </span>
-                <span className="text-foreground">Credit Card Match</span>
+                <span className="text-foreground">Credit Card</span>
               </span>
               <span className="lg:hidden">
                 <span className="text-primary">Find Your Perfect</span>
                 <br />
-                <span className="text-foreground">Credit Card Match</span>
+                <span className="text-foreground">Credit Card</span>
               </span>
             </h1>
             
@@ -3375,7 +3435,7 @@ export default function Home() {
         {/* Desktop redesign after first question */}
         {hasAskedQuestion && (
           <section className="hidden lg:block mt-8 mb-8">
-            <div className="max-w-4xl mx-auto px-4 lg:px-6 space-y-6">
+            <div className="max-w-6xl mx-auto px-4 lg:px-6 space-y-6">
               {/* Hero Input Card */}
               <div className="relative bg-background/80 backdrop-blur-sm border border-slate-200/40 rounded-3xl shadow-lg shadow-slate-200/20 px-8 py-8 overflow-hidden">
                 {/* Decorative gradient overlay */}
@@ -3386,7 +3446,7 @@ export default function Home() {
                   {/* Chatbot Conversation with Cartoon */}
                   <div className="flex items-start gap-8">
                     {/* Chatbot Conversation */}
-                    <div className="flex-1">
+                    <div className="flex-[2]">
                       {/* Header with border-left accent */}
                       <div className="flex items-center gap-4 mb-8">
                         <div className="w-1 h-12 bg-primary rounded-full"></div>
@@ -3442,7 +3502,7 @@ export default function Home() {
                                     <User className="w-5 h-5 text-white" />
                                   </div>
                                   <div className="bg-primary text-white rounded-2xl rounded-tl-sm p-4 px-5 shadow-md flex-1 transition-all duration-200 min-w-0 overflow-hidden">
-                                    <p className="whitespace-pre-wrap text-lg font-medium break-words overflow-wrap-anywhere">{message.content}</p>
+                                    <p className="whitespace-pre-wrap text-xl font-medium break-words overflow-wrap-anywhere">{message.content}</p>
                                   </div>
                                 </div>
                                 
@@ -3456,7 +3516,7 @@ export default function Home() {
                                       <div className="flex-1 bg-white rounded-2xl p-5 shadow-md border border-slate-200 transition-all duration-200 min-w-0 overflow-hidden">
                                         <div className="flex items-start gap-3 mb-4">
                                           <span className="text-2xl flex-shrink-0">💡</span>
-                                        <p className="text-base text-foreground leading-relaxed break-words">
+                                        <p className="text-lg text-foreground leading-relaxed break-words">
                                             Let me help you find the right card. Try asking about specific features like:
                                           </p>
                                         </div>
@@ -3479,7 +3539,7 @@ export default function Home() {
                                       </div>
                                     ) : (
                                       <div className="bg-white rounded-2xl pt-5 px-5 pb-4 shadow-md border border-slate-200 flex-1 transition-all duration-200 min-w-0 overflow-hidden">
-                                      <div className="prose prose-sm lg:prose-base max-w-none overflow-x-hidden prose-li:my-0">
+                                      <div className="prose prose-sm lg:prose-lg max-w-none overflow-x-hidden prose-li:my-0">
                                           <ReactMarkdown
                                             components={{
                                               a: ({ ...props }) => (
@@ -3491,7 +3551,7 @@ export default function Home() {
                                                 />
                                               ),
                                               p: ({ ...props }) => (
-                                                <p className="mb-2 text-base text-black leading-relaxed break-words last:mb-0" {...props} />
+                                                <p className="mb-2 text-lg text-black leading-relaxed break-words last:mb-0" {...props} />
                                               ),
                                               ul: ({ ...props }) => (
                                                 <ul className="list-none space-y-2.5 lg:space-y-4 my-2 last:mb-0 [&>li]:block [&>li]:w-full" {...props} />
@@ -3508,12 +3568,12 @@ export default function Home() {
                                                 
                                                 if (hasLink || hasLinkPattern) {
                                                   return (
-                                                    <li className="mb-2 lg:mb-4 block w-full text-base text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                                    <li className="mb-2 lg:mb-4 block w-full text-lg text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
                                                   );
                                                 }
                                                 // Regular option description
                                                 return (
-                                                  <li className="mb-2 lg:mb-4 block w-full text-base text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                                  <li className="mb-2 lg:mb-4 block w-full text-lg text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
                                                 );
                                               },
                                             }}
@@ -3564,6 +3624,9 @@ export default function Home() {
                                               });
                                               // Also catch any standalone '****' sequences and replace with space
                                               displayText = displayText.replace(/\*{2,}/g, ' ');
+                                              
+                                              // Final pass: Ensure each card name appears only once
+                                              displayText = ensureSingleCardNameOccurrence(displayText, message.recommendations);
                                               
                                               return displayText;
                                             })()}
@@ -3852,29 +3915,25 @@ export default function Home() {
                         <div key={displayIndex} className="mb-8 max-w-xl lg:max-w-xl lg:mx-auto overflow-x-hidden min-w-0" data-message-index={displayIndex}>
                           {/* User Message */}
                           <div className="flex items-start gap-3 mb-5 flex-row-reverse lg:flex-row">
-                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-r from-teal-600 to-cyan-600 flex items-center justify-center shadow-md ring-2 ring-teal-100">
-                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
+                            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center shadow-md">
+                              <User className="w-5 h-5 text-white" />
                             </div>
-                            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-2xl p-4 px-5 shadow-md flex-1 transition-all duration-200 min-w-0 overflow-hidden max-w-[72.25%]">
-                              <p className="whitespace-pre-wrap text-xl lg:text-2xl font-bold tracking-tight leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
+                            <div className="bg-primary text-white rounded-2xl rounded-tl-sm p-4 px-5 shadow-md flex-1 transition-all duration-200 min-w-0 overflow-hidden max-w-[72.25%]">
+                              <p className="whitespace-pre-wrap text-xl font-medium break-words overflow-wrap-anywhere">{message.content}</p>
                             </div>
                           </div>
                           
                           {/* Bot Response */}
                           {message.summary && (
                             <div className={`flex items-start gap-3 flex-row-reverse lg:flex-row ${isErrorMessage ? '' : 'mb-0'}`}>
-                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shadow-sm ring-1 ring-slate-200">
-                                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
+                              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-secondary flex items-center justify-center shadow-sm border border-slate-200">
+                                <Sparkles className="w-5 h-5 text-primary" />
                               </div>
                               {isErrorMessage ? (
-                                <div className="flex-1 bg-blue-50 rounded-2xl p-5 shadow-sm border border-blue-100 transition-all duration-200 min-w-0 overflow-hidden max-w-[72.25%]">
+                                <div className="flex-1 bg-white rounded-2xl p-5 shadow-md border border-slate-200 transition-all duration-200 min-w-0 overflow-hidden max-w-[72.25%]">
                                   <div className="flex items-start gap-3 mb-4">
                                     <span className="text-2xl flex-shrink-0">💡</span>
-                                    <p className="text-xl lg:text-2xl text-slate-700 leading-relaxed tracking-tight break-words">
+                                    <p className="text-lg text-foreground leading-relaxed break-words">
                                       Let me help you find the right card. Try asking about specific features like:
                                     </p>
                                   </div>
@@ -3888,7 +3947,7 @@ export default function Home() {
                                         key={idx}
                                         onClick={() => handleSuggestedQuestion(suggestion)}
                                         disabled={isLoading}
-                                        className="border border-teal-600 text-teal-600 rounded-full px-4 py-2.5 text-sm font-medium hover:bg-teal-50 focus:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="border border-primary text-primary rounded-full px-4 py-2.5 text-sm font-medium hover:bg-secondary focus:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
                                         {suggestion}
                                       </button>
@@ -3896,8 +3955,8 @@ export default function Home() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60 flex-1 max-w-xl lg:max-w-[24.48rem] transition-all duration-200 min-w-0 overflow-hidden">
-                                  <div className="prose prose-sm max-w-none overflow-x-hidden">
+                                <div className="bg-white rounded-2xl pt-5 px-5 pb-4 shadow-md border border-slate-200 flex-1 max-w-xl lg:max-w-[24.48rem] transition-all duration-200 min-w-0 overflow-hidden">
+                                  <div className="prose prose-sm lg:prose-lg max-w-none overflow-x-hidden prose-li:my-0">
                                     <ReactMarkdown
                                       components={{
                                         a: ({ ...props }) => (
@@ -3905,38 +3964,38 @@ export default function Home() {
                                             {...props} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="text-teal-600 font-normal hover:text-teal-700 underline decoration-2 decoration-teal-300 hover:decoration-teal-500 transition-colors duration-200"
+                                            className="text-primary font-normal hover:text-primary/80 underline decoration-2 decoration-primary/30 hover:decoration-primary/50 transition-colors duration-200 break-words"
                                           />
-                                        ),
-                                        strong: ({ ...props }) => (
-                                          <strong className="font-normal text-black" {...props} />
-                                        ),
-                                        h2: ({ ...props }) => (
-                                          <h2 className="text-base font-semibold text-slate-900 mt-4 mb-3" {...props} />
-                                        ),
-                                        h3: ({ ...props }) => (
-                                          <h3 className="text-base font-semibold text-slate-900 mt-3 mb-2" {...props} />
                                         ),
                                         p: ({ ...props }) => (
-                                        <p className="mb-3 text-base leading-relaxed text-black break-words" {...props} />
+                                          <p className="mb-2 text-lg text-black leading-relaxed break-words last:mb-0" {...props} />
                                         ),
                                         ul: ({ ...props }) => (
-                                          <ul
-                                            className="list-disc pl-5 lg:pl-8 space-y-2.5 lg:space-y-4 my-3 text-black marker:text-teal-500 [&>li]:block [&>li]:w-full"
-                                            {...props}
-                                          />
+                                          <ul className="list-none space-y-2.5 lg:space-y-4 my-2 last:mb-0 [&>li]:block [&>li]:w-full" {...props} />
                                         ),
-                                        li: ({ ...props }) => (
-                                          <li
-                                            className="mb-3 lg:mb-4 block w-full text-base leading-relaxed text-black break-words pl-1 lg:pl-4 whitespace-normal"
-                                            style={{ display: 'block', clear: 'both', width: '100%' }}
-                                            {...props}
-                                          />
-                                        ),
+                                        li: ({ ...props }) => {
+                                          const children = props.children;
+                                          // Check if children contain an anchor element (link)
+                                          const hasLink = React.Children.toArray(children).some((child: any) => 
+                                            child?.type === 'a' || (typeof child === 'object' && child?.props?.href)
+                                          );
+                                          // Also check if it's a string with markdown link pattern
+                                          const text = typeof children === 'string' ? children : '';
+                                          const hasLinkPattern = text.includes('[') && text.includes('](');
+                                          
+                                          if (hasLink || hasLinkPattern) {
+                                            return (
+                                              <li className="mb-2 lg:mb-4 block w-full text-lg text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                            );
+                                          }
+                                          // Regular option description
+                                          return (
+                                            <li className="mb-2 lg:mb-4 block w-full text-lg text-black leading-relaxed break-words last:mb-0 whitespace-normal" style={{ display: 'block', clear: 'both', width: '100%' }} {...props} />
+                                          );
+                                        },
                                       }}
                                     >
                                       {(() => {
-                                        // Process markdown and ensure all cards are included
                                         let displayText = message.recommendations && message.recommendations.length > 0
                                           ? processMarkdownSummary(message.summary, message.recommendations)
                                           : message.summary;
@@ -3972,6 +4031,20 @@ export default function Home() {
                                         displayText = removeDuplicateCardNames(displayText, message.recommendations);
                                         displayText = removeColonPeriod(displayText, message.recommendations);
                                         displayText = replaceColonWithHyphen(displayText, message.recommendations);
+                                        
+                                        // Final safety net: Remove any remaining '****' patterns that might have slipped through
+                                        // This catches any pattern like "text****text" and removes the duplicate
+                                        displayText = displayText.replace(/([^\*]+?)\*{2,}\1(\s*[-–—]?\s*.*?)(?=\n|$)/gi, (match, p1, p2) => {
+                                          const text = p1.trim();
+                                          const afterText = p2.trim();
+                                          return afterText ? `${text} ${afterText}` : text;
+                                        });
+                                        // Also catch any standalone '****' sequences and replace with space
+                                        displayText = displayText.replace(/\*{2,}/g, ' ');
+                                        
+                                        // Final pass: Ensure each card name appears only once
+                                        displayText = ensureSingleCardNameOccurrence(displayText, message.recommendations);
+                                        
                                         return displayText;
                                       })()}
                                     </ReactMarkdown>
@@ -4215,111 +4288,26 @@ export default function Home() {
               {dynamicSuggestions.length > 0 && messages.length > 0 && !isLoading && (
                 <div className="lg:hidden border-t border-slate-200 max-w-sm" style={{ marginTop: '3rem', paddingTop: '1rem' }}>
                   <p className="text-xs md:text-sm text-slate-500 mb-4 font-semibold uppercase tracking-wide">You might also ask:</p>
-                  {/* Carousel for mobile */}
-                  <div 
-                    ref={suggestionsCarouselRef}
-                    className="flex overflow-x-auto snap-x snap-mandatory scrollbar-thin gap-3 px-4 -mx-4 bg-slate-50/50 rounded-lg py-3"
-                    style={{
-                      WebkitOverflowScrolling: 'touch',
-                      scrollBehavior: 'smooth',
-                      overscrollBehaviorX: 'contain',
-                      scrollSnapType: 'x mandatory',
-                      scrollPadding: '0 1rem',
-                      WebkitScrollSnapType: 'x mandatory',
-                      scrollSnapStop: 'normal',
-                      willChange: 'scroll-position',
-                      touchAction: 'pan-x'
-                    }}
-                  >
-                    {dynamicSuggestions.slice(0, 4).map((suggestion, index) => (
+                  {/* Two static follow-up questions */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {dynamicSuggestions.slice(0, 2).map((suggestion, index) => (
                       <button
                         key={index}
                         onClick={() => handleSuggestedQuestion(suggestion)}
                         disabled={isLoading}
-                        className="bg-white rounded-xl p-2 border border-slate-200 hover:border-teal-300 hover:shadow-md hover:scale-105 transition-all duration-200 h-[160px] w-[200px] flex-shrink-0 snap-center flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+                        className="bg-white rounded-lg p-2.5 border border-slate-200 hover:border-teal-300 hover:shadow-md hover:scale-105 transition-all duration-200 flex flex-col disabled:opacity-50 disabled:cursor-not-allowed group focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 min-h-[120px]"
                       >
                         <div className="flex flex-col items-center text-center space-y-2 flex-1 justify-center">
-                          <div className="rounded-full bg-primary/10 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center">
-                            <span className="text-lg group-hover:scale-110 transition-transform">{getSuggestionIcon(suggestion)}</span>
+                          <div className="rounded-full bg-primary/10 p-2 min-w-[38px] min-h-[38px] flex items-center justify-center">
+                            <span className="text-base group-hover:scale-110 transition-transform">{getSuggestionIcon(suggestion)}</span>
                           </div>
-                          <h3 className="font-semibold text-xs text-card-foreground leading-tight px-2">
+                          <h3 className="font-semibold text-xs leading-tight text-card-foreground px-1 line-clamp-3">
                             {suggestion}
                           </h3>
                         </div>
                       </button>
                     ))}
                   </div>
-                  {/* Carousel Indicators */}
-                  {dynamicSuggestions.length > 0 && (() => {
-                    const totalDots = dynamicSuggestions.slice(0, 4).length;
-                    const dotWidth = 0.5; // w-2 = 0.5rem (inactive), w-6 = 1.5rem (active)
-                    const gap = 0.5; // gap-2 = 0.5rem
-                    const barWidth = 1.5; // width of sliding bar
-                    
-                    // Calculate positions based on actual dot layout
-                    // Dots are in flex container with gap-2 (0.5rem between elements)
-                    // Each dot button: w-2 (0.5rem) inactive, w-6 (1.5rem) active
-                    // 
-                    // For 4 dots with gap-2:
-                    //   Dot 0: left=0, right=0.5rem (inactive) or 1.5rem (active)
-                    //   Gap: 0.5rem
-                    //   Dot 1: left=1rem, right=1.5rem (inactive) or 2.5rem (active)
-                    //   Gap: 0.5rem
-                    //   Dot 2: left=2rem, right=2.5rem (inactive) or 3.5rem (active)
-                    //   Gap: 0.5rem
-                    //   Dot 3: left=3rem, right=3.5rem (inactive) or 4.5rem (active)
-                    //
-                    // Bar should move from 0 to align with rightmost dot's right edge (4.5rem when active)
-                    // Bar right edge at rightmost: 4.5rem, so bar left: 4.5rem - 1.5rem = 3rem
-                    const dotSpacing = dotWidth + gap; // 1rem between dot left edges
-                    const leftmostPosition = 0;
-                    const rightmostDotLeftEdge = (totalDots - 1) * dotSpacing; // 3rem for 4 dots
-                    const rightmostDotRightEdge = rightmostDotLeftEdge + 1.5; // 4.5rem (active)
-                    const rightmostPosition = rightmostDotRightEdge - barWidth; // 3rem
-                    
-                    // Map scroll progress (0-1) to bar position
-                    // Bar should reach rightmost position when scroll is 75% (0.75) of the way
-                    // So we need to scale the progress: when progress = 0.75, bar should be at rightmostPosition
-                    // Scale factor: rightmostPosition should be reached at progress = 0.75
-                    // So: barPosition = (progress / 0.75) * rightmostPosition, capped at rightmostPosition
-                    const scaledProgress = Math.min(suggestionsCarouselScrollProgress / 0.75, 1.0);
-                    const barPosition = scaledProgress * rightmostPosition;
-                    
-                    return (
-                      <div className="flex justify-center gap-2 mt-4 relative" style={{ width: 'fit-content', margin: '1rem auto 0' }}>
-                        {/* Sliding indicator bar */}
-                        <div 
-                          className="absolute h-2 bg-primary rounded-full transition-all duration-75 ease-out"
-                          style={{
-                            width: '1.5rem',
-                            left: `${barPosition}rem`,
-                            top: '0',
-                            transform: 'translateY(0)'
-                          }}
-                        />
-                      {dynamicSuggestions.slice(0, 4).map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => {
-                            if (suggestionsCarouselRef.current) {
-                              // Mobile card width is 200px
-                              const cardWidth = 200;
-                              const gap = 12; // gap-3 = 12px
-                              suggestionsCarouselRef.current.scrollTo({
-                                left: index * (cardWidth + gap),
-                                behavior: 'smooth'
-                              });
-                            }
-                          }}
-                          className={`w-2 h-2 rounded-full transition-all duration-200 relative z-10 ${
-                            index === suggestionsCarouselIndex ? 'bg-primary w-6' : 'bg-slate-300'
-                          }`}
-                          aria-label={`Go to slide ${index + 1}`}
-                        />
-                      ))}
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
               
