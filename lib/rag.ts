@@ -4,6 +4,27 @@ import { embedQuery, findSimilarCards, loadEmbeddings } from './embeddings';
 import { cardToText } from './data';
 
 /**
+ * Computes cosine similarity between two vectors
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) {
+    throw new Error('Vectors must have the same length');
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
  * Lazy-loaded OpenAI client to ensure environment variables are loaded first
  */
 function getOpenAIClient() {
@@ -112,37 +133,39 @@ async function detectSpecificCardQuery(userQuery: string): Promise<string | null
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
-      content: `You are a credit card assistant. Analyze the user's question to determine if they are asking about a SPECIFIC credit card by name AND want to see card information/recommendations.
+      content: `You are a credit card assistant. Analyze the user's question to determine if they are asking about a SPECIFIC credit card by name.
 
-CRITICAL: Only return is_specific_card: true if:
-1. The user is EXPLICITLY asking about ONE specific card by its exact name
-2. AND they want to see information about that card (not just asking a general question that happens to mention a card name)
+CRITICAL: Return is_specific_card: true if:
+1. The user mentions ONE specific credit card by its exact name (e.g., "Chase Sapphire Preferred", "Amex Platinum", "Capital One Venture")
+2. They want to see information about that specific card (even if they use recommendation keywords like "show me", "tell me about", "recommend", etc.)
 
 Return JSON: {"is_specific_card": true/false, "card_name": "extracted card name or null"}
 
 Examples that ARE specific card queries (is_specific_card: true):
 - "Tell me about the Chase Sapphire Preferred" → {"is_specific_card": true, "card_name": "Chase Sapphire Preferred"}
+- "Show me the Chase Sapphire Preferred" → {"is_specific_card": true, "card_name": "Chase Sapphire Preferred"}
 - "What are the benefits of Amex Platinum?" → {"is_specific_card": true, "card_name": "Amex Platinum"}
 - "Chase Freedom Unlimited details" → {"is_specific_card": true, "card_name": "Chase Freedom Unlimited"}
 - "Information about the Capital One Venture card" → {"is_specific_card": true, "card_name": "Capital One Venture"}
-- "Show me the Chase Sapphire Preferred" → {"is_specific_card": true, "card_name": "Chase Sapphire Preferred"}
+- "Recommend the Chase Sapphire Preferred" → {"is_specific_card": true, "card_name": "Chase Sapphire Preferred"}
+- "Show me details about Amex Gold" → {"is_specific_card": true, "card_name": "Amex Gold"}
+- "I want to know about the Capital One Venture X" → {"is_specific_card": true, "card_name": "Capital One Venture X"}
 
 Examples that are NOT specific card queries (is_specific_card: false):
-- "What's the best travel card?" → {"is_specific_card": false, "card_name": null}
-- "Show me cards with no annual fee" → {"is_specific_card": false, "card_name": null}
-- "What are the best cards for travel?" → {"is_specific_card": false, "card_name": null}
-- "Recommend cards for groceries" → {"is_specific_card": false, "card_name": null}
-- "Which card should I get?" → {"is_specific_card": false, "card_name": null}
-- "Compare travel cards" → {"is_specific_card": false, "card_name": null}
+- "What's the best travel card?" → {"is_specific_card": false, "card_name": null} (no specific card mentioned)
+- "Show me cards with no annual fee" → {"is_specific_card": false, "card_name": null} (asking for multiple cards)
+- "What are the best cards for travel?" → {"is_specific_card": false, "card_name": null} (asking for multiple cards)
+- "Recommend cards for groceries" → {"is_specific_card": false, "card_name": null} (asking for multiple cards)
+- "Which card should I get?" → {"is_specific_card": false, "card_name": null} (no specific card mentioned)
+- "Compare travel cards" → {"is_specific_card": false, "card_name": null} (asking for multiple cards)
 - "Show me the best Chase cards" → {"is_specific_card": false, "card_name": null} (asking for multiple cards)
-- "What is the annual fee of Chase Sapphire?" → {"is_specific_card": false, "card_name": null} (asking for information, not to see the card)
-- "How does the Chase Sapphire Preferred work?" → {"is_specific_card": false, "card_name": null} (asking how something works)
-- "What does APR mean for the Amex Platinum?" → {"is_specific_card": false, "card_name": null} (asking for definition/explanation)
+- "What is APR?" → {"is_specific_card": false, "card_name": null} (asking for definition, no card mentioned)
+- "How does balance transfer work?" → {"is_specific_card": false, "card_name": null} (asking how something works, no card mentioned)
 
 IMPORTANT: 
-- If the question asks for recommendations, comparisons, or multiple cards, return is_specific_card: false
-- If the question is asking "what is", "how does", "what does", "explain", "tell me about" (a concept/term), return is_specific_card: false even if a card name is mentioned
-- Only return true if the user wants to SEE information about a specific card, not if they're asking a general question that mentions a card`,
+- If a specific card name is mentioned, return is_specific_card: true even if recommendation keywords are present
+- If the question asks for multiple cards or comparisons between cards, return is_specific_card: false
+- If the question is asking about a concept/term without mentioning a specific card, return is_specific_card: false`,
     },
     {
       role: 'user',
@@ -211,15 +234,24 @@ async function generateSpecificCardResponse(
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
-      content: `You are a helpful credit card assistant. The user is asking about a SPECIFIC credit card. Provide detailed, helpful information about this card.
+      content: `You are a helpful credit card assistant. The user is asking about ONE SPECIFIC credit card. Provide detailed, helpful information about ONLY this card.
+
+CRITICAL REQUIREMENTS:
+- Focus ONLY on the specific card mentioned - do NOT mention other cards
+- Do NOT compare to other cards
+- Do NOT suggest alternative cards
+- Provide comprehensive information about this ONE card only
 
 Return JSON: {
-  "summary": "A detailed markdown-formatted response about the card that:\n1. Starts with a brief acknowledgment (1 sentence)\n2. Provides comprehensive information about the card including key features, benefits, fees, rewards, and requirements\n3. Includes the card name as a markdown link: [Card Name](application_url)\n4. Ends with a brief closing (1 sentence)\n\nUse markdown formatting: **bold** for emphasis, bullet points (-), proper line breaks. Be informative and helpful.",
+  "summary": "A detailed markdown-formatted response about ONLY this specific card that:\n1. Starts with a brief acknowledgment about this card (1 sentence)\n2. Provides comprehensive information about this card including key features, benefits, fees, rewards, and requirements\n3. Includes the card name as a markdown link: [Card Name](application_url)\n4. Ends with a brief closing about this card (1 sentence)\n\nUse markdown formatting: **bold** for emphasis, bullet points (-), proper line breaks. Be informative and helpful. Focus ONLY on this one card.",
   "card_name": "exact card name from the data",
   "apply_url": "application URL from the data"
 }
 
-IMPORTANT: Include ALL relevant information about the card. Make it comprehensive and helpful.`,
+IMPORTANT: 
+- Include ALL relevant information about this specific card
+- Do NOT mention or compare to any other cards
+- Make it comprehensive and helpful, but focused solely on this one card`,
     },
   ];
   
@@ -792,6 +824,187 @@ IMPORTANT: Only reference the cards provided. Do not suggest new cards.`,
 }
 
 /**
+ * Detects if the user is asking about how the chatbot was trained or its architecture
+ */
+function isTrainingQuestion(userQuery: string): boolean {
+  const queryLower = userQuery.toLowerCase().trim();
+  
+  // Primary phrases that clearly indicate questions about training/architecture
+  const primaryPhrases = [
+    'how were you trained',
+    'how was you trained',
+    'how are you trained',
+    'how did you learn',
+    'how do you work',
+    'how were you made',
+    'how was you made',
+    'how are you made',
+    'how were you built',
+    'how was you built',
+    'how are you built',
+    'how were you created',
+    'how was you created',
+    'how are you created',
+    'who made you',
+    'who created you',
+    'who built you',
+    'what powers you',
+    'what do you use',
+    'where did you learn',
+    'where do you get your',
+    'how do you know',
+    'your training',
+    'you trained',
+    'your architecture',
+    'your system',
+    'your database',
+    'your data',
+    'your sources',
+    'your model',
+  ];
+  
+  // Secondary keywords that, when combined with context, indicate training questions
+  const secondaryKeywords = [
+    'openai',
+    'gpt',
+    'chatgpt',
+    'language model',
+    'llm',
+    'retrieval',
+    'rag',
+    'embeddings',
+    'vector',
+    'nlp',
+    'natural language processing',
+  ];
+  
+  // Check for primary phrases first (more reliable)
+  if (primaryPhrases.some(phrase => queryLower.includes(phrase))) {
+    return true;
+  }
+  
+  // Check for secondary keywords (only if they appear in a question context)
+  // This helps avoid false positives from casual mentions
+  const hasSecondaryKeyword = secondaryKeywords.some(keyword => queryLower.includes(keyword));
+  const looksLikeQuestion = queryLower.includes('?') || 
+                            queryLower.startsWith('what') || 
+                            queryLower.startsWith('how') || 
+                            queryLower.startsWith('who') || 
+                            queryLower.startsWith('where') ||
+                            queryLower.startsWith('which');
+  
+  return hasSecondaryKeyword && looksLikeQuestion;
+}
+
+/**
+ * Checks if the user is asking about a specific cobranded credit card
+ */
+function isCobrandedCardQuery(userQuery: string): boolean {
+  const queryLower = userQuery.toLowerCase();
+  
+  // Common cobranded card indicators
+  const cobrandedKeywords = [
+    'airlines', 'airline', 'hotel', 'hotels', 'cruise', 'cruises',
+    'marriott', 'hilton', 'hyatt', 'ihg', 'wyndham',
+    'united', 'delta', 'american airlines', 'southwest', 'jetblue', 'alaska',
+    'disney', 'amazon', 'costco', 'best buy', 'apple',
+    'cobranded', 'co-branded', 'co branded', 'partner'
+  ];
+  
+  // Check if query mentions a specific cobranded brand
+  return cobrandedKeywords.some(keyword => queryLower.includes(keyword));
+}
+
+// Track if we've logged column info for debugging
+let hasLoggedColumns = false;
+
+/**
+ * Checks if a card has top_card value of 1
+ * Also checks for variations in column name (top_card, topCard, Top Card, Top_Card, etc.)
+ */
+function isTopCard(card: any): boolean {
+  // Try different possible column names
+  const possibleColumnNames = ['top_card', 'topCard', 'Top Card', 'Top_Card', 'top card', 'TOP_CARD'];
+  
+  let topCardValue = null;
+  let foundColumnName = null;
+  
+  for (const colName of possibleColumnNames) {
+    if (card[colName] !== undefined && card[colName] !== null) {
+      topCardValue = card[colName];
+      foundColumnName = colName;
+      break;
+    }
+  }
+  
+  // If not found, log available columns for debugging (only once)
+  if (topCardValue === null && !hasLoggedColumns) {
+    console.log('Available columns in card object:', Object.keys(card).slice(0, 20).join(', '));
+    console.log('Sample card data:', JSON.stringify(card).substring(0, 200));
+    hasLoggedColumns = true;
+  }
+  
+  if (topCardValue === null || topCardValue === undefined) {
+    return false;
+  }
+  
+  // Handle various value formats: "1", 1, "1.0", " 1 ", "TRUE", true, etc.
+  const normalizedValue = String(topCardValue).trim().toLowerCase();
+  const isTop = normalizedValue === '1' || 
+                normalizedValue === '1.0' || 
+                normalizedValue === 'true' ||
+                topCardValue === 1 ||
+                topCardValue === true;
+  
+  if (isTop) {
+    console.log(`Card ${card.credit_card_name} is marked as top_card (column: ${foundColumnName}, value: ${topCardValue})`);
+  }
+  
+  return isTop;
+}
+
+/**
+ * Filters recommendations to ensure no duplicate co_branded values
+ * Returns recommendations with unique co_branded values, prioritizing first occurrence
+ */
+function filterDuplicateCobranded(
+  recommendations: Recommendation[],
+  similarCards: CardEmbedding[]
+): Recommendation[] {
+  const normalizeCardName = (name: string) => 
+    name.toLowerCase().replace(/[®™©]/g, '').trim();
+  
+  const seenCobranded = new Set<string>();
+  const filtered: Recommendation[] = [];
+  
+  for (const rec of recommendations) {
+    // Find the matching card to get co_branded value
+    const matchingCard = similarCards.find(
+      card => normalizeCardName(card.card.credit_card_name) === normalizeCardName(rec.credit_card_name)
+    );
+    
+    if (!matchingCard) {
+      // If we can't find the card, include it (shouldn't happen, but safe fallback)
+      filtered.push(rec);
+      continue;
+    }
+    
+    const cobranded = String(matchingCard.card.co_branded || 'NA').trim();
+    const normalizedCobranded = cobranded.toLowerCase();
+    
+    // If this co_branded value hasn't been seen, add it
+    if (!seenCobranded.has(normalizedCobranded)) {
+      seenCobranded.add(normalizedCobranded);
+      filtered.push(rec);
+    } else {
+      console.log(`Filtered out duplicate co_branded: ${rec.credit_card_name} (${cobranded})`);
+    }
+  }
+  
+  return filtered;
+}
+
+/**
  * Generates credit card recommendations using RAG
  */
 export async function generateRecommendations(
@@ -801,6 +1014,16 @@ export async function generateRecommendations(
   previousRecommendations?: Recommendation[]
 ): Promise<RecommendationsResponse> {
   try {
+    // Step -1: Check if user is asking about how the chatbot was trained
+    if (isTrainingQuestion(userQuery)) {
+      console.log('Detected training/architecture question, returning custom response');
+      return {
+        recommendations: [],
+        summary: "I am powered by a specialized integration of OpenAI's GPT models and a custom financial database. My architecture combines Natural Language Processing (NLP) with a retrieval system that constantly combs through 1,000+ verified sources (such as APR tables, issuer terms, and redemption portals). This allows me to cross-reference complex credit card data in real-time to answer your questions.",
+        rawModelAnswer: 'Training question detected',
+      };
+    }
+    
     // Step 0: Check if user is asking about previously shown cards
     if (previousRecommendations && previousRecommendations.length > 0) {
       console.log('Checking if query is about previously shown cards...');
@@ -813,33 +1036,23 @@ export async function generateRecommendations(
     }
     
     // Step 1: Check if user is asking about a specific card by name
-    // Skip this check if the query contains recommendation keywords (e.g., "best", "recommend", "show me")
-    const queryLower = userQuery.toLowerCase();
-    const recommendationKeywords = [
-      'best', 'recommend', 'suggest', 'show me', 'give me', 'which', 'what card',
-      'find', 'looking for', 'need', 'want', 'help me find'
-    ];
-    const hasRecommendationKeywords = recommendationKeywords.some(keyword => queryLower.includes(keyword));
+    // ALWAYS check for specific cards FIRST, even if recommendation keywords are present
+    // This ensures queries like "Show me the Chase Sapphire Preferred" return only that card
+    console.log('Checking if query is about a specific card...');
+    const specificCardName = await detectSpecificCardQuery(userQuery);
     
-    if (!hasRecommendationKeywords) {
-      // Only check for specific card if it doesn't look like a recommendation request
-      console.log('Checking if query is about a specific card...');
-      const specificCardName = await detectSpecificCardQuery(userQuery);
+    if (specificCardName) {
+      console.log(`Detected specific card query: ${specificCardName}`);
+      const specificCard = await findCardByName(specificCardName);
       
-      if (specificCardName) {
-        console.log(`Detected specific card query: ${specificCardName}`);
-        const specificCard = await findCardByName(specificCardName);
-        
-        if (specificCard) {
-          console.log(`Found specific card: ${specificCard.card.credit_card_name}`);
-          return await generateSpecificCardResponse(specificCard, userQuery, conversationHistory);
-        } else {
-          console.log(`Could not find card matching: ${specificCardName}`);
-          // Continue with normal flow - maybe the card name was misidentified
-        }
+      if (specificCard) {
+        console.log(`Found specific card: ${specificCard.card.credit_card_name}`);
+        // Return response with ONLY this specific card
+        return await generateSpecificCardResponse(specificCard, userQuery, conversationHistory);
+      } else {
+        console.log(`Could not find card matching: ${specificCardName}`);
+        // Continue with normal flow - maybe the card name was misidentified
       }
-    } else {
-      console.log('Query contains recommendation keywords, skipping specific card detection');
     }
     
     // Step 1: Determine if this query needs card recommendations
@@ -867,8 +1080,66 @@ export async function generateRecommendations(
       };
     }
     
-    // Step 4: Format context for LLM
-    const context = formatCardsForContext(similarCards);
+    // Step 3.5: Ensure we have top_card cards in the candidate list
+    // If no top_card cards are in the similar cards, fetch some top_card cards and add them
+    const topCardsInSimilar = similarCards.filter(card => isTopCard(card.card));
+    let allCandidateCards = [...similarCards];
+    
+    console.log(`Found ${topCardsInSimilar.length} top_card cards in initial similar cards`);
+    if (topCardsInSimilar.length > 0) {
+      console.log('Top_card cards in similar:', topCardsInSimilar.map(c => c.card.credit_card_name));
+    }
+    
+    if (topCardsInSimilar.length === 0) {
+      console.log('No top_card cards found in similar cards, fetching top_card cards separately...');
+      const store = await loadEmbeddings();
+      const allTopCards = store.embeddings.filter(card => isTopCard(card.card));
+      
+      console.log(`Found ${allTopCards.length} total top_card cards in database`);
+      
+      if (allTopCards.length > 0) {
+        // Compute similarity for top_card cards and get the most relevant ones
+        const topCardSimilarities = allTopCards.map(cardEmbedding => ({
+          cardEmbedding,
+          similarity: cosineSimilarity(queryEmbedding, cardEmbedding.embedding),
+        }));
+        
+        // Sort by similarity and take top 2-3 top_card cards
+        topCardSimilarities.sort((a, b) => b.similarity - a.similarity);
+        const bestTopCards = topCardSimilarities.slice(0, 3).map(item => item.cardEmbedding);
+        
+        console.log(`Selected ${bestTopCards.length} most relevant top_card cards:`, bestTopCards.map(c => c.card.credit_card_name));
+        
+        // Add top_card cards to the candidate list (avoid duplicates)
+        const normalizeCardName = (name: string) => 
+          name.toLowerCase().replace(/[®™©]/g, '').trim();
+        const existingCardNames = new Set(allCandidateCards.map(c => normalizeCardName(c.card.credit_card_name)));
+        
+        for (const topCard of bestTopCards) {
+          if (!existingCardNames.has(normalizeCardName(topCard.card.credit_card_name))) {
+            allCandidateCards.push(topCard);
+            console.log(`Added top_card card to candidates: ${topCard.card.credit_card_name}`);
+          } else {
+            console.log(`Top_card card already in candidates: ${topCard.card.credit_card_name}`);
+          }
+        }
+      } else {
+        console.warn('No top_card cards found in database at all!');
+      }
+    }
+    
+    // Step 3.6: Prioritize top_card cards (cards with top_card === 1)
+    // Sort allCandidateCards to put top_card cards first, but keep similarity order within each group
+    const topCards = allCandidateCards.filter(card => isTopCard(card.card));
+    const nonTopCards = allCandidateCards.filter(card => !isTopCard(card.card));
+    const prioritizedSimilarCards = [...topCards, ...nonTopCards];
+    
+    if (topCards.length > 0) {
+      console.log(`Found ${topCards.length} top_card cards in candidate list, prioritizing them in recommendations`);
+    }
+    
+    // Step 4: Format context for LLM (use prioritized cards)
+    const context = formatCardsForContext(prioritizedSimilarCards);
     
     // Step 5: Call LLM with RAG context
     console.log('Calling LLM for recommendations...');
@@ -919,6 +1190,8 @@ CRITICAL REQUIREMENTS:
 Candidate cards:
 ${context}
 
+${topCards.length > 0 ? `\nIMPORTANT: Some cards in the candidate list are marked as top recommendations (top_card = 1). When possible, try to include at least one of these top cards in your recommendations if they match the user's needs. However, prioritize relevance to the user's question above all else.\n` : ''}
+
 Create a markdown-formatted response with this EXACT structure:
 
 1. ONE sentence preface that introduces the recommendations (acknowledge the user's question/need)
@@ -946,7 +1219,9 @@ For each card in the "cards" array, include:
 - "card_summary": A concise 1-2 sentence summary of the card's key value proposition
 - "card_highlights": A newline-separated list of 3-5 key highlights/benefits (one per line, no bullets or dashes)
 
-Select the best 3 cards from the candidates and return JSON with the formatted markdown summary.`;
+CRITICAL: You MUST select exactly 3 cards from the candidates. If there are fewer than 3 candidate cards, select all available cards. If there are more than 3, select the best 3. The "cards" array in your JSON response MUST contain exactly 3 cards (no exceptions).
+
+Return JSON with the formatted markdown summary.`;
     
     messages.push({ role: 'user', content: userPrompt });
 
@@ -1127,13 +1402,13 @@ Select the best 3 cards from the candidates and return JSON with the formatted m
           
           // Check if card name matches any similar card (fuzzy match)
           const recNameNormalized = normalizeCardNameLocal(rec.credit_card_name);
-          const matches = similarCards.some(
+          const matches = prioritizedSimilarCards.some(
             card => normalizeCardNameLocal(card.card.credit_card_name) === recNameNormalized
           );
           
           if (!matches) {
             console.log('Card name not found in similar cards:', rec.credit_card_name);
-            console.log('Available cards:', similarCards.map(c => c.card.credit_card_name));
+            console.log('Available cards:', prioritizedSimilarCards.map(c => c.card.credit_card_name));
           }
           
           return matches;
@@ -1145,21 +1420,59 @@ Select the best 3 cards from the candidates and return JSON with the formatted m
       console.log('Valid recommendations:', validRecommendations.map((r: any) => r.credit_card_name));
       
       // Enrich recommendations with full card data
-      const enrichedRecommendations = validRecommendations.map((rec: any) => {
-        // Find the matching card from similarCards
-        const matchingCard = similarCards.find(
+      const enrichedRecommendations = validRecommendations.map((rec: any, index: number) => {
+        // Find the matching card from prioritizedSimilarCards
+        const matchingCard = prioritizedSimilarCards.find(
           card => normalizeCardNameLocal(card.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
         );
         
         if (matchingCard) {
           const card = matchingCard.card;
-          return {
+          
+          // Generate card_highlights fallback from other fields if not available
+          let cardHighlights = String(card.card_highlights || rec.card_highlights || '').trim();
+          
+          // If card_highlights is empty, try to generate from perks or other fields
+          if (!cardHighlights) {
+            const highlights: string[] = [];
+            
+            // Try to use perks field
+            if (card.perks || card.benefits || card.card_perks) {
+              const perksText = String(card.perks || card.benefits || card.card_perks || '');
+              // Split perks by common delimiters and take first 3-5 items
+              const perkItems = perksText.split(/[.,;]/)
+                .map(p => p.trim())
+                .filter(p => p.length > 10 && p.length < 100)
+                .slice(0, 5);
+              highlights.push(...perkItems);
+            }
+            
+            // If still no highlights, try to extract from reason or rewards_rate
+            if (highlights.length === 0) {
+              if (rec.reason) {
+                const reasonParts = String(rec.reason)
+                  .split(/[.,;]/)
+                  .map(r => r.trim())
+                  .filter(r => r.length > 15 && r.length < 100)
+                  .slice(0, 3);
+                highlights.push(...reasonParts);
+              }
+              
+              if (highlights.length === 0 && card.rewards_rate) {
+                highlights.push(String(card.rewards_rate));
+              }
+            }
+            
+            cardHighlights = highlights.join('\n');
+          }
+          
+          const enriched = {
             credit_card_name: rec.credit_card_name,
             apply_url: rec.apply_url || String(card.url_application || ''),
             reason: rec.reason || '',
             // Pull from Google Sheet first, fallback to LLM response if not in sheet
             card_summary: String(card.card_summary || rec.card_summary || '').trim(),
-            card_highlights: String(card.card_highlights || rec.card_highlights || '').trim(),
+            card_highlights: cardHighlights,
             intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
             application_fee: String(card.application_fee || card.app_fee || ''),
             credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
@@ -1167,20 +1480,197 @@ Select the best 3 cards from the candidates and return JSON with the formatted m
             rewards_rate: String(card.rewards_rate || card.rewards || card.reward_rate || ''),
             perks: String(card.perks || card.benefits || card.card_perks || ''),
           };
+          
+          console.log(`[ENRICHMENT ${index}] Card: ${rec.credit_card_name}, hasHighlights: ${!!enriched.card_highlights && enriched.card_highlights.length > 0}, highlightsLength: ${enriched.card_highlights?.length || 0}`);
+          
+          return enriched;
         }
-        return rec;
+        
+        // If no matching card found, still ensure card_highlights is set
+        const fallbackHighlights = rec.card_highlights 
+          ? String(rec.card_highlights).trim()
+          : (rec.perks ? String(rec.perks).split(/[.,;]/).slice(0, 5).join('\n') : '');
+        
+        const fallback = {
+          ...rec,
+          card_highlights: fallbackHighlights,
+          card_summary: String(rec.card_summary || '').trim(),
+        };
+        
+        console.log(`[ENRICHMENT ${index}] Card: ${rec.credit_card_name}, NO MATCHING CARD FOUND, hasHighlights: ${!!fallback.card_highlights && fallback.card_highlights.length > 0}`);
+        
+        return fallback;
       });
       
+      // Filter out duplicate co_branded values (unless user is asking about a specific cobranded card)
+      let filteredRecommendations = enrichedRecommendations;
+      const isCobrandedQuery = isCobrandedCardQuery(userQuery);
+      
+      // Log card_highlights status before filtering
+      enrichedRecommendations.forEach((rec, idx) => {
+        console.log(`[BEFORE FILTER ${idx}] ${rec.credit_card_name}: hasHighlights=${!!rec.card_highlights && rec.card_highlights.length > 0}`);
+      });
+      
+      if (!isCobrandedQuery) {
+        console.log('Filtering duplicate co_branded values from recommendations...');
+        filteredRecommendations = filterDuplicateCobranded(enrichedRecommendations, prioritizedSimilarCards);
+        console.log(`Filtered from ${enrichedRecommendations.length} to ${filteredRecommendations.length} recommendations`);
+      } else {
+        console.log('User is asking about a cobranded card, skipping co_branded filter');
+      }
+      
+      // Log card_highlights status after filtering
+      filteredRecommendations.forEach((rec, idx) => {
+        console.log(`[AFTER FILTER ${idx}] ${rec.credit_card_name}: hasHighlights=${!!rec.card_highlights && rec.card_highlights.length > 0}`);
+      });
+      
+      // Ensure at least one top_card card is included if available
+      // This is CRITICAL - we must force top_card cards to appear
+      if (topCards.length > 0) {
+        const normalizeCardNameLocal = (name: string) => 
+          name.toLowerCase().replace(/[®™©]/g, '').trim();
+        
+        const hasTopCard = filteredRecommendations.some(rec => {
+          const matchingCard = prioritizedSimilarCards.find(
+            card => normalizeCardNameLocal(card.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
+          );
+          return matchingCard && isTopCard(matchingCard.card);
+        });
+        
+        if (!hasTopCard) {
+          console.log('No top_card card found in recommendations, forcing inclusion...');
+          console.log(`Available topCards: ${topCards.map(c => c.card.credit_card_name).join(', ')}`);
+          console.log(`Current recommendations: ${filteredRecommendations.map(r => r.credit_card_name).join(', ')}`);
+          
+          const usedCardNames = new Set(filteredRecommendations.map(r => normalizeCardNameLocal(r.credit_card_name)));
+          const availableTopCard = topCards.find(card => 
+            !usedCardNames.has(normalizeCardNameLocal(card.card.credit_card_name))
+          );
+          
+          if (availableTopCard) {
+            const card = availableTopCard.card;
+            
+            // Generate card_highlights from perks or other fields if not available
+            let topCardHighlights = String(card.card_highlights || '').trim();
+            if (!topCardHighlights) {
+              const highlights: string[] = [];
+              if (card.perks || card.benefits || card.card_perks) {
+                const perksText = String(card.perks || card.benefits || card.card_perks || '');
+                const perkItems = perksText.split(/[.,;]/)
+                  .map(p => p.trim())
+                  .filter(p => p.length > 10 && p.length < 100)
+                  .slice(0, 5);
+                highlights.push(...perkItems);
+              }
+              if (highlights.length === 0 && card.rewards_rate) {
+                highlights.push(String(card.rewards_rate));
+              }
+              topCardHighlights = highlights.join('\n');
+            }
+            
+            const topCardRec: Recommendation = {
+              credit_card_name: card.credit_card_name,
+              apply_url: String(card.url_application || ''),
+              reason: `This top-rated card matches your criteria based on ${card.rewards || 'its features'}.`,
+              card_summary: String(card.card_summary || '').trim(),
+              card_highlights: topCardHighlights,
+              intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
+              application_fee: String(card.application_fee || card.app_fee || ''),
+              credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
+              annual_fee: String(card.annual_fee || card.fee || ''),
+              rewards_rate: String(card.rewards_rate || card.rewards || card.reward_rate || ''),
+              perks: String(card.perks || card.benefits || card.card_perks || ''),
+            };
+            
+            if (filteredRecommendations.length < 3) {
+              // Add it if we have room
+              filteredRecommendations.push(topCardRec);
+              console.log(`✓ Added top_card card to recommendations: ${card.credit_card_name}`);
+            } else {
+              // Replace the FIRST non-top card (not the last) to ensure top_card appears early
+              // Find the first card that is NOT a top_card
+              let replaced = false;
+              for (let i = 0; i < filteredRecommendations.length; i++) {
+                const rec = filteredRecommendations[i];
+                const matchingCard = prioritizedSimilarCards.find(
+                  c => normalizeCardNameLocal(c.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
+                );
+                if (!matchingCard || !isTopCard(matchingCard.card)) {
+                  filteredRecommendations[i] = topCardRec;
+                  console.log(`✓ Replaced recommendation at index ${i} (${rec.credit_card_name}) with top_card card: ${card.credit_card_name}`);
+                  replaced = true;
+                  break;
+                }
+              }
+              
+              // If all cards are top_card (shouldn't happen, but just in case), replace the last one
+              if (!replaced) {
+                filteredRecommendations[filteredRecommendations.length - 1] = topCardRec;
+                console.log(`✓ Replaced last recommendation with top_card card: ${card.credit_card_name}`);
+              }
+            }
+          } else {
+            console.warn(`⚠ No available top_card card found to add. Used cards: ${Array.from(usedCardNames).join(', ')}`);
+            console.warn(`Top cards available: ${topCards.map(c => c.card.credit_card_name).join(', ')}`);
+          }
+        } else {
+          console.log('✓ Top_card card already present in recommendations');
+        }
+      }
+      
       // Fallback: If validation filtered out all cards but we have similar cards, use them
-      let finalRecommendations = enrichedRecommendations;
-      if (finalRecommendations.length === 0 && similarCards.length > 0) {
+      let finalRecommendations = filteredRecommendations;
+      if (finalRecommendations.length === 0 && prioritizedSimilarCards.length > 0) {
         console.warn('All recommendations were filtered out. Using top similar cards as fallback.');
-        finalRecommendations = similarCards.slice(0, 3).map((cardData) => {
+        const normalizeCardNameLocal = (name: string) => 
+          name.toLowerCase().replace(/[®™©]/g, '').trim();
+        
+        // Track co_branded values if not a cobranded query
+        const usedCobranded = new Set<string>();
+        const fallbackCards: CardEmbedding[] = [];
+        
+        // Prioritize top_card cards in fallback
+        for (const cardData of prioritizedSimilarCards) {
+          if (fallbackCards.length >= 3) break;
+          
+          if (!isCobrandedQuery) {
+            const cobranded = String(cardData.card.co_branded || 'NA').trim().toLowerCase();
+            if (usedCobranded.has(cobranded)) {
+              continue; // Skip duplicate co_branded
+            }
+            usedCobranded.add(cobranded);
+          }
+          
+          fallbackCards.push(cardData);
+        }
+        
+        finalRecommendations = fallbackCards.map((cardData) => {
           const card = cardData.card;
+          
+          // Generate card_highlights from perks or other fields if not available
+          let cardHighlights = String(card.card_highlights || '').trim();
+          if (!cardHighlights) {
+            const highlights: string[] = [];
+            if (card.perks || card.benefits || card.card_perks) {
+              const perksText = String(card.perks || card.benefits || card.card_perks || '');
+              const perkItems = perksText.split(/[.,;]/)
+                .map(p => p.trim())
+                .filter(p => p.length > 10 && p.length < 100)
+                .slice(0, 5);
+              highlights.push(...perkItems);
+            }
+            if (highlights.length === 0 && card.rewards_rate) {
+              highlights.push(String(card.rewards_rate));
+            }
+            cardHighlights = highlights.join('\n');
+          }
+          
           return {
             credit_card_name: card.credit_card_name,
             apply_url: String(card.url_application || card.url || ''),
             reason: `This card matches your criteria based on ${card.rewards || 'its features'}.`,
+            card_summary: String(card.card_summary || '').trim(),
+            card_highlights: cardHighlights,
             intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
             application_fee: String(card.application_fee || card.app_fee || ''),
             credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
@@ -1191,32 +1681,185 @@ Select the best 3 cards from the candidates and return JSON with the formatted m
         });
       }
       
+      // Ensure at least one top_card is included if available (before final padding)
+      if (topCards.length > 0 && finalRecommendations.length > 0) {
+        const normalizeCardNameLocal = (name: string) => 
+          name.toLowerCase().replace(/[®™©]/g, '').trim();
+        
+        const hasTopCard = finalRecommendations.some(rec => {
+          const matchingCard = prioritizedSimilarCards.find(
+            card => normalizeCardNameLocal(card.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
+          );
+          return matchingCard && isTopCard(matchingCard.card);
+        });
+        
+        if (!hasTopCard) {
+          // Find an available top_card card
+          const usedCardNames = new Set(finalRecommendations.map(r => normalizeCardNameLocal(r.credit_card_name)));
+          const availableTopCard = topCards.find(card => 
+            !usedCardNames.has(normalizeCardNameLocal(card.card.credit_card_name))
+          );
+          
+          if (availableTopCard) {
+            const card = availableTopCard.card;
+            const topCardRec: Recommendation = {
+              credit_card_name: card.credit_card_name,
+              apply_url: String(card.url_application || ''),
+              reason: `This top-rated card matches your criteria based on ${card.rewards || 'its features'}.`,
+              card_summary: String(card.card_summary || '').trim(),
+              card_highlights: String(card.card_highlights || '').trim(),
+              intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
+              application_fee: String(card.application_fee || card.app_fee || ''),
+              credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
+              annual_fee: String(card.annual_fee || card.fee || ''),
+              rewards_rate: String(card.rewards_rate || card.rewards || card.reward_rate || ''),
+              perks: String(card.perks || card.benefits || card.card_perks || ''),
+            };
+            
+            // If we have 3 cards, replace the last one. Otherwise, add it.
+            if (finalRecommendations.length >= 3) {
+              finalRecommendations[finalRecommendations.length - 1] = topCardRec;
+              console.log(`Replaced last recommendation with top_card card: ${card.credit_card_name}`);
+            } else {
+              finalRecommendations.push(topCardRec);
+              console.log(`Added top_card card to recommendations: ${card.credit_card_name}`);
+            }
+          }
+        }
+      }
+      
       // Ensure we return exactly 3 cards for general recommendations
+      // (If this was a specific card query, we would have returned earlier)
       if (finalRecommendations.length > 3) {
         finalRecommendations = finalRecommendations.slice(0, 3);
-      } else if (finalRecommendations.length < 3 && similarCards.length > finalRecommendations.length) {
-        // If we have fewer than 3 cards, pad with additional similar cards
-        console.log(`Only found ${finalRecommendations.length} cards, padding to 3...`);
-        const usedCardNames = new Set(finalRecommendations.map(r => normalizeCardNameLocal(r.credit_card_name)));
-        const additionalCards = similarCards
-          .filter(card => !usedCardNames.has(normalizeCardNameLocal(card.card.credit_card_name)))
-          .slice(0, 3 - finalRecommendations.length);
-        
-        additionalCards.forEach((cardData) => {
-          const card = cardData.card;
-          finalRecommendations.push({
-            credit_card_name: card.credit_card_name,
-            apply_url: String(card.url_application || card.url || ''),
-            reason: `This card matches your criteria based on ${card.rewards || 'its features'}.`,
-            intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
-            application_fee: String(card.application_fee || card.app_fee || ''),
-            credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
-            annual_fee: String(card.annual_fee || card.fee || ''),
-            rewards_rate: String(card.rewards_rate || card.rewards || card.reward_rate || ''),
-            perks: String(card.perks || card.benefits || card.card_perks || ''),
+      } else if (finalRecommendations.length < 3 && prioritizedSimilarCards.length > 0) {
+          // If we have fewer than 3 cards, pad with additional similar cards
+          console.log(`Only found ${finalRecommendations.length} cards, padding to 3...`);
+          const normalizeCardNameLocal = (name: string) => 
+            name.toLowerCase().replace(/[®™©]/g, '').trim();
+          
+          const usedCardNames = new Set(finalRecommendations.map(r => normalizeCardNameLocal(r.credit_card_name)));
+          
+          // Track used co_branded values if not a cobranded query
+          const usedCobranded = new Set<string>();
+          if (!isCobrandedQuery) {
+            // Get co_branded values from current recommendations
+            finalRecommendations.forEach(rec => {
+              const matchingCard = similarCards.find(
+                card => normalizeCardNameLocal(card.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
+              );
+              if (matchingCard) {
+                const cobranded = String(matchingCard.card.co_branded || 'NA').trim().toLowerCase();
+                usedCobranded.add(cobranded);
+              }
+            });
+          }
+          
+          // When padding, prioritize top_card cards if we don't have one yet
+          const hasTopCardInFinal = finalRecommendations.some(rec => {
+            const matchingCard = prioritizedSimilarCards.find(
+              card => normalizeCardNameLocal(card.card.credit_card_name) === normalizeCardNameLocal(rec.credit_card_name)
+            );
+            return matchingCard && isTopCard(matchingCard.card);
           });
-        });
-      }
+          
+          let cardsToConsider = prioritizedSimilarCards;
+          if (!hasTopCardInFinal && topCards.length > 0) {
+            // Prioritize top_card cards when padding
+            cardsToConsider = [...topCards.filter(card => 
+              !finalRecommendations.some(rec => 
+                normalizeCardNameLocal(rec.credit_card_name) === normalizeCardNameLocal(card.card.credit_card_name)
+              )
+            ), ...nonTopCards];
+          }
+          
+          // First try: Get cards with unique co_branded values (if not cobranded query)
+          let additionalCards = cardsToConsider
+            .filter(card => {
+              const cardNameNormalized = normalizeCardNameLocal(card.card.credit_card_name);
+              if (usedCardNames.has(cardNameNormalized)) {
+                return false;
+              }
+              // If not a cobranded query, also filter by co_branded
+              if (!isCobrandedQuery) {
+                const cobranded = String(card.card.co_branded || 'NA').trim().toLowerCase();
+                if (usedCobranded.has(cobranded)) {
+                  return false;
+                }
+              }
+              return true;
+            })
+            .slice(0, 3 - finalRecommendations.length);
+          
+          // If we still don't have enough cards, relax the co_branded constraint
+          if (additionalCards.length < (3 - finalRecommendations.length) && !isCobrandedQuery) {
+            console.log('Not enough cards with unique co_branded, relaxing constraint to ensure 3 cards...');
+            additionalCards = cardsToConsider
+              .filter(card => {
+                const cardNameNormalized = normalizeCardNameLocal(card.card.credit_card_name);
+                return !usedCardNames.has(cardNameNormalized);
+              })
+              .slice(0, 3 - finalRecommendations.length);
+          }
+          
+          // If still not enough, just take any available cards (last resort)
+          if (additionalCards.length < (3 - finalRecommendations.length)) {
+            console.log('Still not enough cards, using any available cards to reach 3...');
+            const needed = 3 - finalRecommendations.length;
+            const moreCards = cardsToConsider
+              .filter(card => {
+                const cardNameNormalized = normalizeCardNameLocal(card.card.credit_card_name);
+                return !usedCardNames.has(cardNameNormalized);
+              })
+              .slice(0, needed);
+            additionalCards = [...additionalCards, ...moreCards].slice(0, needed);
+          }
+          
+          additionalCards.forEach((cardData) => {
+            const card = cardData.card;
+            const cobranded = String(card.co_branded || 'NA').trim().toLowerCase();
+            if (!isCobrandedQuery) {
+              usedCobranded.add(cobranded);
+            }
+            
+            // Generate card_highlights from perks or other fields if not available
+            let cardHighlights = String(card.card_highlights || '').trim();
+            if (!cardHighlights) {
+              const highlights: string[] = [];
+              if (card.perks || card.benefits || card.card_perks) {
+                const perksText = String(card.perks || card.benefits || card.card_perks || '');
+                const perkItems = perksText.split(/[.,;]/)
+                  .map(p => p.trim())
+                  .filter(p => p.length > 10 && p.length < 100)
+                  .slice(0, 5);
+                highlights.push(...perkItems);
+              }
+              if (highlights.length === 0 && card.rewards_rate) {
+                highlights.push(String(card.rewards_rate));
+              }
+              cardHighlights = highlights.join('\n');
+            }
+            
+            finalRecommendations.push({
+              credit_card_name: card.credit_card_name,
+              apply_url: String(card.url_application || card.url || ''),
+              reason: `This card matches your criteria based on ${card.rewards || 'its features'}.`,
+              card_summary: String(card.card_summary || '').trim(),
+              card_highlights: cardHighlights,
+              intro_offer: String(card.intro_offer || card.welcome_bonus || card.sign_up_bonus || card.intro_bonus || ''),
+              application_fee: String(card.application_fee || card.app_fee || ''),
+              credit_score_needed: String(card.credit_score_needed || card.credit_score || card.min_credit_score || card.credit_score_required || ''),
+              annual_fee: String(card.annual_fee || card.fee || ''),
+              rewards_rate: String(card.rewards_rate || card.rewards || card.reward_rate || ''),
+              perks: String(card.perks || card.benefits || card.card_perks || ''),
+            });
+          });
+          
+          // Final check: if we still don't have 3 cards, log a warning but proceed
+          if (finalRecommendations.length < 3) {
+            console.warn(`WARNING: Only able to return ${finalRecommendations.length} cards instead of 3. Available similar cards: ${similarCards.length}`);
+          }
+        }
       
       // Clean summary again before checking if we need to rebuild
       // This ensures any duplicates are removed before we check for missing cards
@@ -1441,8 +2084,28 @@ Select the best 3 cards from the candidates and return JSON with the formatted m
       
       console.log('[FINAL] Summary after all cleaning:', finalSummary.substring(0, 500));
       
+      // Final validation: Ensure all recommendations have card_highlights
+      const validatedRecommendations = finalRecommendations.map((rec: any, idx: number) => {
+        if (!rec.card_highlights || String(rec.card_highlights).trim().length === 0) {
+          console.warn(`[FINAL VALIDATION ${idx}] ${rec.credit_card_name} missing card_highlights, generating from perks...`);
+          const fallbackHighlights = rec.perks 
+            ? String(rec.perks).split(/[.,;]/).slice(0, 5).join('\n')
+            : (rec.reason ? String(rec.reason).split(/[.,;]/).slice(0, 3).join('\n') : '');
+          return {
+            ...rec,
+            card_highlights: fallbackHighlights,
+          };
+        }
+        return rec;
+      });
+      
+      // Log final status
+      validatedRecommendations.forEach((rec, idx) => {
+        console.log(`[FINAL RETURN ${idx}] ${rec.credit_card_name}: hasHighlights=${!!rec.card_highlights && rec.card_highlights.length > 0}, length=${rec.card_highlights?.length || 0}`);
+      });
+      
       return {
-        recommendations: finalRecommendations,
+        recommendations: validatedRecommendations,
         summary: finalSummary,
         rawModelAnswer: rawAnswer,
         title: title,

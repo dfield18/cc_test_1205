@@ -52,6 +52,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Ensure mobile scrolling works */
+@media (max-width: 1023px) {
+  html {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  body {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    position: relative !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent any fixed height containers from blocking scroll */
+  #__next {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
 /* Typography - Apply font-heading to h1-h6 */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading), sans-serif;

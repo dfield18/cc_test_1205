@@ -42,6 +42,29 @@ function parseCSVToCards(csvText: string): CreditCard[] {
     throw new Error('No data found in CSV');
   }
 
+  // Log available columns from first row (for debugging)
+  if (parsed.data.length > 0) {
+    const firstRow = parsed.data[0] as any;
+    const columns = Object.keys(firstRow);
+    console.log(`📊 Available columns in Google Sheet (${columns.length} total):`, columns.join(', '));
+    
+    // Check for top_card column variations
+    const topCardVariations = ['top_card', 'topCard', 'Top Card', 'Top_Card', 'top card', 'TOP_CARD'];
+    const foundTopCardColumn = topCardVariations.find(col => columns.includes(col));
+    if (foundTopCardColumn) {
+      console.log(`✅ Found top_card column: "${foundTopCardColumn}"`);
+      // Count how many cards have top_card = 1
+      const topCardCount = (parsed.data as any[]).filter(row => {
+        const value = row[foundTopCardColumn];
+        const normalized = String(value || '').trim().toLowerCase();
+        return normalized === '1' || normalized === '1.0' || normalized === 'true' || value === 1 || value === true;
+      }).length;
+      console.log(`✅ Found ${topCardCount} cards with top_card = 1`);
+    } else {
+      console.warn(`⚠️  No top_card column found. Available columns: ${columns.join(', ')}`);
+    }
+  }
+
   const cards: CreditCard[] = [];
   
   for (const row of parsed.data as any[]) {
