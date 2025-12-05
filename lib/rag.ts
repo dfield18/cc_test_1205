@@ -1870,6 +1870,7 @@ Return JSON with the formatted markdown summary.`;
         // Validate format: Check if summary has markdown links and connecting sentences
         const hasMarkdownLinks = summary.includes('**[') && summary.includes('](http');
         const lines = summary.split('\n').filter((line: string) => line.trim().startsWith('-'));
+        const hasEnoughCardLines = lines.length >= recommendations.length;
         const hasConnectingSentences = lines.length > 0 && lines.every((line: string) => {
           // Check if line has a period after the description (indicating a connecting sentence)
           const parts = line.split(' - ');
@@ -1879,8 +1880,9 @@ Return JSON with the formatted markdown summary.`;
           const periods = afterDash.split('.').length;
           return periods >= 2; // At least description and connecting sentence
         });
-        
-        if (!hasMarkdownLinks || !hasConnectingSentences) {
+
+        // If summary is missing cards or proper formatting, rebuild it
+        if (!hasMarkdownLinks || !hasConnectingSentences || !hasEnoughCardLines) {
           console.warn('WARNING: Summary format validation failed. hasMarkdownLinks:', hasMarkdownLinks, 'hasConnectingSentences:', hasConnectingSentences);
           console.warn('Summary:', summary);
           
@@ -3173,9 +3175,24 @@ Return JSON with the formatted markdown summary.`;
       console.error('Raw response type:', typeof rawAnswer);
       console.error('Raw response length:', rawAnswer?.length);
 
-      // If the raw response seems to contain card information, try to use it as the summary
-      if (rawAnswer && rawAnswer.length > 50 && (rawAnswer.includes('card') || rawAnswer.includes('Card'))) {
-        console.log('Raw response contains text, using it as fallback summary');
+      // Check if rawAnswer looks like JSON (starts with { or [)
+      const looksLikeJSON = rawAnswer && (rawAnswer.trim().startsWith('{') || rawAnswer.trim().startsWith('['));
+
+      if (looksLikeJSON) {
+        // If it looks like JSON but failed to parse, don't show raw JSON to user
+        console.error('CRITICAL: Response looks like JSON but failed to parse - not showing raw JSON to user');
+        const title = await generateRecommendationTitle(userQuery);
+        return {
+          recommendations: [],
+          summary: "I encountered an error while processing the card recommendations. Please try rephrasing your question or being more specific about what you're looking for (e.g., 'travel cards', 'cashback cards', 'no annual fee cards').",
+          rawModelAnswer: rawAnswer,
+          title: title,
+        };
+      }
+
+      // If the raw response is actual text (not JSON), we can use it
+      if (rawAnswer && rawAnswer.length > 50 && (rawAnswer.includes('card') || rawAnswer.includes('Card')) && !looksLikeJSON) {
+        console.log('Raw response contains text (not JSON), using it as fallback summary');
         const title = await generateRecommendationTitle(userQuery);
         return {
           recommendations: [],
