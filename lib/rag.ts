@@ -1850,7 +1850,23 @@ Return JSON with the formatted markdown summary.`;
         const parsed = JSON.parse(rawAnswer);
         const recommendations: Recommendation[] = parsed.cards || [];
         let summary = parsed.summary || '';
-        
+
+        // Critical validation: Check if we have any recommendations
+        if (recommendations.length === 0) {
+          console.error('CRITICAL: LLM returned valid JSON but with zero recommendations');
+          console.error('Parsed response:', parsed);
+          console.error('Summary:', summary);
+
+          // If the summary mentions cards but we have no recommendations, this is an error
+          const title = await generateRecommendationTitle(userQuery);
+          return {
+            recommendations: [],
+            summary: "I couldn't generate specific card recommendations for your query. Please try rephrasing your question or asking about different criteria. For example, you could ask about 'travel rewards cards', 'cards with no annual fee', or 'cashback credit cards'.",
+            rawModelAnswer: rawAnswer,
+            title: title,
+          };
+        }
+
         // Validate format: Check if summary has markdown links and connecting sentences
         const hasMarkdownLinks = summary.includes('**[') && summary.includes('](http');
         const lines = summary.split('\n').filter((line: string) => line.trim().startsWith('-'));
@@ -3152,13 +3168,31 @@ Return JSON with the formatted markdown summary.`;
         title: title,
       };
     } catch (parseError) {
-      console.error('Failed to parse LLM response:', parseError);
+      console.error('Failed to parse LLM response as JSON:', parseError);
       console.error('Raw response:', rawAnswer);
-      // Try to extract recommendations from text if JSON parsing fails
+      console.error('Raw response type:', typeof rawAnswer);
+      console.error('Raw response length:', rawAnswer?.length);
+
+      // If the raw response seems to contain card information, try to use it as the summary
+      if (rawAnswer && rawAnswer.length > 50 && (rawAnswer.includes('card') || rawAnswer.includes('Card'))) {
+        console.log('Raw response contains text, using it as fallback summary');
+        const title = await generateRecommendationTitle(userQuery);
+        return {
+          recommendations: [],
+          summary: rawAnswer,
+          rawModelAnswer: rawAnswer,
+          title: title,
+        };
+      }
+
+      // Otherwise, provide a helpful error message
+      console.error('CRITICAL: LLM did not return valid JSON and response does not contain useful information');
+      const title = await generateRecommendationTitle(userQuery);
       return {
         recommendations: [],
-        summary: 'I found some cards that might match your needs. Here are the top recommendations:',
+        summary: "I apologize, but I encountered an error while generating recommendations. Please try rephrasing your question or asking about different credit card criteria. If the problem persists, try asking about specific card types like 'travel cards', 'cashback cards', or 'no annual fee cards'.",
         rawModelAnswer: rawAnswer,
+        title: title,
       };
     }
   } catch (error) {
