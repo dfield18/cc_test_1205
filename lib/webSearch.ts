@@ -12,6 +12,10 @@ function getOpenAIClient() {
   });
 }
 
+// Use a more capable model for general knowledge fallback
+// GPT-4o is recommended for better accuracy and reasoning when database doesn't have info
+const FALLBACK_MODEL = process.env.FALLBACK_MODEL || 'gpt-4o';
+
 interface WebSearchResponse {
   answer: string;
   usedWebSearch: boolean;
@@ -142,8 +146,10 @@ Keep your response concise (2-4 sentences) and helpful.`,
   });
 
   try {
+    console.log(`[GENERAL KNOWLEDGE] Using ${FALLBACK_MODEL} for enhanced answer quality`);
+
     const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: FALLBACK_MODEL,
       messages: messages,
       temperature: 0.7,
       max_tokens: 500,
@@ -152,7 +158,7 @@ Keep your response concise (2-4 sentences) and helpful.`,
     const answer = completion.choices[0]?.message?.content ||
       "I don't have that specific information in my credit card database. For the most current and accurate information, I recommend checking the official website of the credit card issuer or contacting them directly.";
 
-    console.log('[GENERAL KNOWLEDGE] Generated answer using OpenAI general knowledge');
+    console.log(`[GENERAL KNOWLEDGE] Generated answer using ${FALLBACK_MODEL}`);
 
     return {
       answer,

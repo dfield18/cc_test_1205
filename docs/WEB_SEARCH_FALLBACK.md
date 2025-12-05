@@ -128,7 +128,12 @@ The system detects when to use OpenAI's general knowledge by analyzing if the qu
 
 ## How General Knowledge Fallback Works
 
-The system uses **OpenAI's GPT-3.5-turbo** with general knowledge about credit cards and finance when the internal database doesn't have sufficient information.
+The system uses **OpenAI's GPT-4o** (by default) with general knowledge about credit cards and finance when the internal database doesn't have sufficient information. GPT-4o is used instead of GPT-3.5-turbo to provide higher quality, more accurate answers for questions outside the database.
+
+**Model Configuration:**
+- Default: `gpt-4o` (superior reasoning and knowledge)
+- Configurable via `FALLBACK_MODEL` environment variable
+- Alternative options: `gpt-4`, `gpt-4-turbo`, or `gpt-3.5-turbo` (for cost savings)
 
 ### Key Features
 
@@ -156,12 +161,14 @@ The system uses **OpenAI's GPT-3.5-turbo** with general knowledge about credit c
 
 ## Benefits
 
-1. **Comprehensive Coverage**: Answers both database queries and general questions
-2. **Intelligent Routing**: Only uses general knowledge when database lacks information
-3. **Cost Efficient**: Uses existing OpenAI API, no additional search API costs
-4. **Transparent**: Logs when general knowledge fallback is used
-5. **Honest Communication**: Acknowledges limitations about currency of information
-6. **Educational**: Provides helpful context and learning opportunities
+1. **High-Quality Answers**: Uses GPT-4o for superior reasoning and accuracy on complex questions
+2. **Comprehensive Coverage**: Answers both database queries and general questions
+3. **Intelligent Routing**: Only uses general knowledge when database lacks information
+4. **Cost Efficient**: Uses existing OpenAI API, no additional search API costs
+5. **Transparent**: Logs which model is used for each fallback response
+6. **Honest Communication**: Acknowledges limitations about currency of information
+7. **Educational**: Provides helpful context and learning opportunities
+8. **Configurable**: Adjust model choice via environment variable based on quality/cost preferences
 
 ## Monitoring
 
@@ -174,8 +181,43 @@ Check server logs for these indicators:
 [NO CARDS FOUND] Falling back to OpenAI general knowledge
 [NO SIMILAR CARDS] Falling back to OpenAI general knowledge
 [GENERAL KNOWLEDGE] Using OpenAI general knowledge for query not in database
-[GENERAL KNOWLEDGE] Generated answer using OpenAI general knowledge
+[GENERAL KNOWLEDGE] Using gpt-4o for enhanced answer quality
+[GENERAL KNOWLEDGE] Generated answer using gpt-4o
 ```
+
+**Model Selection Logs:**
+The system now logs which specific model is used for each general knowledge response, making it easy to track quality vs. cost trade-offs.
+
+## Configuration
+
+### Environment Variable
+
+Set the `FALLBACK_MODEL` environment variable in your `.env.local` file:
+
+```bash
+# Default (recommended for best quality)
+FALLBACK_MODEL=gpt-4o
+
+# Alternative options
+FALLBACK_MODEL=gpt-4           # Slightly older, still excellent
+FALLBACK_MODEL=gpt-4-turbo     # Good balance of speed and quality
+FALLBACK_MODEL=gpt-3.5-turbo   # Most cost-effective
+```
+
+### Cost Comparison
+
+**Pricing per 1M tokens (approximate):**
+- `gpt-4o`: $2.50 input / $10.00 output - **Best quality**
+- `gpt-4-turbo`: $10.00 input / $30.00 output - High quality
+- `gpt-3.5-turbo`: $0.50 input / $1.50 output - Most economical
+
+**Recommendation:** Use `gpt-4o` (default) for production. The general knowledge fallback is used infrequently (only when database doesn't have info), so the extra cost is minimal while providing significantly better answers.
+
+### When to Consider Different Models
+
+- **Use GPT-4o (default)**: Production environments, customer-facing applications, when answer quality is critical
+- **Use GPT-4-turbo**: Similar quality to GPT-4o, good alternative
+- **Use GPT-3.5-turbo**: Development/testing environments, high-volume fallback scenarios, cost-sensitive deployments
 
 ## Future Enhancements
 
