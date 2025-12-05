@@ -3,6 +3,7 @@ import { Recommendation, RecommendationsResponse, CardEmbedding } from '@/types'
 import { embedQuery, findSimilarCards, loadEmbeddings } from './embeddings';
 import { cardToText } from './data';
 import { extractFilters, applyFilters, CardFilters } from './filters';
+import { needsWebSearch, generateAnswerWithWebSearch, isInternalKnowledgeSufficient } from './webSearch';
 
 /**
  * Computes cosine similarity between two vectors
@@ -835,12 +836,29 @@ async function generateGeneralAnswer(
   userQuery: string,
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<RecommendationsResponse> {
+  // Check if this query needs web search due to requiring current information
+  const requiresWebSearch = await needsWebSearch(userQuery, false);
+
+  if (requiresWebSearch) {
+    console.log('[GENERAL ANSWER] Query requires web search, falling back to web search');
+    const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+    const title = await generateRecommendationTitle(userQuery);
+
+    return {
+      recommendations: [],
+      summary: webSearchResult.answer,
+      rawModelAnswer: JSON.stringify({ usedWebSearch: true, sources: webSearchResult.sources }),
+      title: title,
+    };
+  }
+
+  // Otherwise, use internal knowledge to answer
   const openai = getOpenAIClient();
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
-      content: `You are a helpful credit card assistant. Answer the user's question about credit cards in a friendly, conversational way. Keep responses concise (1-3 sentences). 
+      content: `You are a helpful credit card assistant. Answer the user's question about credit cards in a friendly, conversational way. Keep responses concise (1-3 sentences).
 
 IMPORTANT: For definition or explanation questions (e.g., "what is cash back?", "how does APR work?"), provide a clear, direct answer about the concept itself. Do NOT mention specific credit cards or provide card recommendations. Just explain the concept.
 
@@ -877,7 +895,7 @@ Return JSON: {"summary": "your answer"}`,
     const response = JSON.parse(responseText);
     // Generate a title even for general answers
     const title = await generateRecommendationTitle(userQuery);
-    
+
     return {
       recommendations: [],
       summary: response.summary || 'I can help you with credit card questions. Would you like specific card recommendations?',
@@ -1404,10 +1422,27 @@ export async function generateRecommendations(
       filteredCardIds = filteredCards.map(card => card.id);
 
       if (filteredCards.length === 0) {
-        console.warn('No cards match the specified filters');
+        console.warn('No cards match the specified filters - checking if web search needed');
+
+        // Check if we should fall back to web search
+        const shouldUseWebSearch = await needsWebSearch(userQuery, false);
+        if (shouldUseWebSearch) {
+          console.log('[NO CARDS FOUND] Falling back to web search');
+          const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+          const title = await generateRecommendationTitle(userQuery);
+
+          return {
+            recommendations: [],
+            summary: webSearchResult.answer,
+            rawModelAnswer: JSON.stringify({ usedWebSearch: true, sources: webSearchResult.sources }),
+            title: title,
+          };
+        }
+
+        // Otherwise return helpful message about adjusting criteria
         return {
           recommendations: [],
-          summary: "I couldn't find any credit cards that match your specific criteria. Please try adjusting your requirements or asking about different features.",
+          summary: "I couldn't find any credit cards in my database that match your specific criteria. Please try adjusting your requirements or asking about different features.",
           rawModelAnswer: 'No cards match filters',
         };
       }
@@ -1422,9 +1457,27 @@ export async function generateRecommendations(
     const similarCards = await findSimilarCards(queryEmbedding, topN, filteredCardIds);
     
     if (similarCards.length === 0) {
+      console.warn('No similar cards found - checking if web search needed');
+
+      // Check if we should fall back to web search
+      const shouldUseWebSearch = await needsWebSearch(userQuery, false);
+      if (shouldUseWebSearch) {
+        console.log('[NO SIMILAR CARDS] Falling back to web search');
+        const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+        const title = await generateRecommendationTitle(userQuery);
+
+        return {
+          recommendations: [],
+          summary: webSearchResult.answer,
+          rawModelAnswer: JSON.stringify({ usedWebSearch: true, sources: webSearchResult.sources }),
+          title: title,
+        };
+      }
+
+      // Otherwise return helpful message
       return {
         recommendations: [],
-        summary: "I couldn't find any credit cards that match your specific needs. Please try rephrasing your question or asking about different criteria.",
+        summary: "I couldn't find any credit cards in my database that match your specific needs. Please try rephrasing your question or asking about different criteria.",
         rawModelAnswer: 'No matching cards found.',
       };
     }
