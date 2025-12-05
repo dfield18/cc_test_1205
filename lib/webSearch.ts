@@ -124,33 +124,45 @@ export async function generateAnswerWithActualWebSearch(
 
 Use web search to find the most current and accurate information to answer the user's question.
 
-FORMATTING REQUIREMENTS:
-- Format your response using markdown for better readability
-- Use **bold** for card names, important numbers, and key features
-- Use bullet points (•) to list features or comparisons
-- For comparisons, create clear sections for each card
-- Include specific details like fees, rewards rates, APRs, welcome bonuses
+CRITICAL FORMATTING RULES - FOLLOW THIS EXACT STRUCTURE:
 
-CONTENT REQUIREMENTS:
-- Search for specific, current information about the credit cards mentioned
-- Cite recent information and acknowledge when information is from official sources
-- Be specific and detailed - avoid generic statements
-- If comparing cards, provide concrete differences (e.g., "**$95** vs **$550** annual fee")
+1. Start with a brief intro (1 sentence max)
+2. For EACH card, create a section with:
+   - Card name as bold heading: **Card Name**
+   - Bullet points (•) for ALL features (3-5 bullets minimum)
+   - Bold ALL numbers, fees, percentages: **text**
+3. End with brief comparison/recommendation (1-2 sentences)
 
-EXAMPLE FORMAT:
-"As of the latest information available, the **Chase Sapphire Preferred® Card** typically offers a higher sign-up bonus compared to the **Chase Sapphire Reserve®**.
+REQUIRED FORMAT (COPY THIS STRUCTURE):
 
-The **Chase Sapphire Preferred®** currently provides:
-• Sign-up bonus of **60,000 points** after spending **$4,000** in the first 3 months
+Both Chase Sapphire cards offer competitive sign-up bonuses as of 2025.
+
+**Chase Sapphire Preferred® Card**
+• Sign-up bonus: **60,000 points** after spending **$4,000** in first 3 months
 • Annual fee: **$95**
+• Bonus value: **$750** when redeemed for travel through Chase portal
+• Rewards: **2x points** on travel and dining
+• Best for: Budget-conscious travelers
 
-The **Chase Sapphire Reserve®** generally offers:
-• Sign-up bonus of **60,000 points** after spending **$4,000** in the first 3 months
+**Chase Sapphire Reserve® Card**
+• Sign-up bonus: **60,000 points** after spending **$4,000** in first 3 months
 • Annual fee: **$550**
+• Bonus value: **$750** when redeemed for travel through Chase portal
+• Travel credit: **$300** annual statement credit
+• Airport lounge access: Priority Pass membership included
+• Rewards: **3x points** on travel and dining
 
-The Preferred's bonus is often considered more valuable due to its lower annual fee. Both bonuses are valued at **$750** when redeemed through Chase Ultimate Rewards® for travel."
+The Preferred offers better overall value for most users due to its lower annual fee, while the Reserve is ideal for frequent travelers who can leverage the **$300** travel credit and premium benefits.
 
-Provide a well-formatted, comprehensive answer with specific details.`,
+CRITICAL RULES:
+- NEVER write features in paragraph form - ALWAYS use bullet points
+- ALWAYS bold numbers, percentages, dollar amounts
+- ALWAYS create **Card Name** headers
+- Keep intro and conclusion brief
+- Use 3-5 bullet points minimum per card
+- Include specific numbers from web search
+
+For single-card questions, use same bullet format with one card section.`,
     },
   ];
 
