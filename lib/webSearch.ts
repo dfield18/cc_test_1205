@@ -41,10 +41,40 @@ export function isGenericResponse(response: string, query: string): boolean {
     'could include',
   ];
 
+  // Phrases that indicate the AI is punting to external sources (should trigger web search)
+  const puntingPhrases = [
+    'check the website',
+    'visit the website',
+    'check their website',
+    'visit their website',
+    'contact them directly',
+    'call them',
+    'reach out to',
+    'as of my last update',
+    'as of my knowledge',
+    'i don\'t have access to',
+    'i don\'t have current',
+    'can change frequently',
+    'can vary over time',
+    'may vary',
+    'for the most current',
+    'for current information',
+    'for up-to-date',
+    'it\'s best to check',
+    'promotional offers can vary',
+    'offers can vary',
+    'specifics can change',
+  ];
+
   const responseLower = response.toLowerCase();
 
   // Check if response contains multiple generic phrases
   const genericCount = genericPhrases.filter(phrase =>
+    responseLower.includes(phrase)
+  ).length;
+
+  // Check if response is punting to external sources
+  const puntingCount = puntingPhrases.filter(phrase =>
     responseLower.includes(phrase)
   ).length;
 
@@ -55,11 +85,22 @@ export function isGenericResponse(response: string, query: string): boolean {
   // Check if response doesn't contain specific numbers, percentages, or dollar amounts
   const hasSpecifics = /\$\d+|%|\d+x|\d+\.\d+/.test(response);
 
-  // If multiple generic phrases AND (short OR no specifics), it's probably generic
-  const isGeneric = (genericCount >= 2 && isVeryShort) || (genericCount >= 3 && !hasSpecifics);
+  // Determine if generic based on multiple criteria:
+  // 1. Multiple generic phrases AND (short OR no specifics)
+  // 2. ANY punting phrases (saying to check website/contact them = we should do web search)
+  // 3. 2+ punting phrases regardless of other factors
+  const isGeneric =
+    (genericCount >= 2 && isVeryShort) ||
+    (genericCount >= 3 && !hasSpecifics) ||
+    (puntingCount >= 1) ||
+    (puntingCount >= 2);
 
   if (isGeneric) {
-    console.log(`[GENERIC DETECTION] Response appears generic (${genericCount} generic phrases, ${wordCount} words, hasSpecifics: ${hasSpecifics})`);
+    console.log(`[GENERIC DETECTION] Response appears generic or punts to external sources`);
+    console.log(`  - Generic phrases: ${genericCount}`);
+    console.log(`  - Punting phrases: ${puntingCount}`);
+    console.log(`  - Word count: ${wordCount}`);
+    console.log(`  - Has specifics: ${hasSpecifics}`);
   }
 
   return isGeneric;
