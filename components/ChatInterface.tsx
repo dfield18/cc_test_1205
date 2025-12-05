@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import CreditCardBox from '@/components/CreditCardBox';
 import RecommendedQuestions from '@/components/RecommendedQuestions';
 
@@ -127,7 +128,25 @@ export default function ChatInterface({ initialMessage = '', onBack }: ChatInter
                   : 'bg-white border border-gray-200 shadow-sm'
               }`}
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              {message.role === 'user' ? (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      // Customize markdown rendering for better styling
+                      p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold text-teal-700">{children}</strong>,
+                      ul: ({ children }) => <ul className="my-2 space-y-1">{children}</ul>,
+                      li: ({ children }) => <li className="ml-4">{children}</li>,
+                      h3: ({ children }) => <h3 className="font-semibold text-lg mt-4 mb-2 text-gray-900">{children}</h3>,
+                      h4: ({ children }) => <h4 className="font-semibold text-base mt-3 mb-1.5 text-gray-800">{children}</h4>,
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
+              )}
               
               {message.creditCards && message.creditCards.length > 0 && (
                 <div className="mt-4 space-y-3">

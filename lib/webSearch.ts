@@ -124,14 +124,33 @@ export async function generateAnswerWithActualWebSearch(
 
 Use web search to find the most current and accurate information to answer the user's question.
 
-IMPORTANT:
-- Search for specific, current information about the credit cards mentioned
+FORMATTING REQUIREMENTS:
+- Format your response using markdown for better readability
+- Use **bold** for card names, important numbers, and key features
+- Use bullet points (•) to list features or comparisons
+- For comparisons, create clear sections for each card
 - Include specific details like fees, rewards rates, APRs, welcome bonuses
+
+CONTENT REQUIREMENTS:
+- Search for specific, current information about the credit cards mentioned
 - Cite recent information and acknowledge when information is from official sources
 - Be specific and detailed - avoid generic statements
-- If comparing cards, provide concrete differences (e.g., "$95 vs $550 annual fee", "3x vs 4x points on dining")
+- If comparing cards, provide concrete differences (e.g., "**$95** vs **$550** annual fee")
 
-Provide a comprehensive answer (3-5 sentences) with specific details.`,
+EXAMPLE FORMAT:
+"As of the latest information available, the **Chase Sapphire Preferred® Card** typically offers a higher sign-up bonus compared to the **Chase Sapphire Reserve®**.
+
+The **Chase Sapphire Preferred®** currently provides:
+• Sign-up bonus of **60,000 points** after spending **$4,000** in the first 3 months
+• Annual fee: **$95**
+
+The **Chase Sapphire Reserve®** generally offers:
+• Sign-up bonus of **60,000 points** after spending **$4,000** in the first 3 months
+• Annual fee: **$550**
+
+The Preferred's bonus is often considered more valuable due to its lower annual fee. Both bonuses are valued at **$750** when redeemed through Chase Ultimate Rewards® for travel."
+
+Provide a well-formatted, comprehensive answer with specific details.`,
     },
   ];
 

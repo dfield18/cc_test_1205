@@ -858,11 +858,16 @@ async function generateGeneralAnswer(
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
-      content: `You are a helpful credit card assistant. Answer the user's question about credit cards in a friendly, conversational way. Keep responses concise (1-3 sentences).
+      content: `You are a helpful credit card assistant. Answer the user's question about credit cards in a friendly, conversational way.
+
+FORMATTING:
+- Use **bold** for important terms and key concepts
+- Use bullet points (•) for lists when helpful
+- Keep responses concise but well-structured
 
 IMPORTANT: For definition or explanation questions (e.g., "what is cash back?", "how does APR work?"), provide a clear, direct answer about the concept itself. Do NOT mention specific credit cards or provide card recommendations. Just explain the concept.
 
-Return JSON: {"summary": "your answer"}`,
+Return JSON: {"summary": "your markdown-formatted answer"}`,
     },
   ];
 
