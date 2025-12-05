@@ -12,34 +12,8 @@ function getOpenAIClient() {
   });
 }
 
-/**
- * Performs web search using OpenAI's search functionality or external API
- * Note: This is a placeholder - you would integrate with actual search API like:
- * - Google Custom Search API
- * - Bing Search API
- * - Brave Search API
- * - SerpAPI
- */
-async function performWebSearch(query: string, numResults: number = 5): Promise<SearchResult[]> {
-  // For now, return empty array - implement with actual search API
-  // Example with Google Custom Search:
-  // const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
-  // const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
-  // const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}`;
-
-  console.log(`[WEB SEARCH] Would search for: "${query}"`);
-  return [];
-}
-
-interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-}
-
 interface WebSearchResponse {
   answer: string;
-  sources: SearchResult[];
   usedWebSearch: boolean;
 }
 
@@ -124,45 +98,31 @@ Output: {"needsWebSearch": true, "reason": "Requires current market analysis"}`;
 }
 
 /**
- * Generates an answer using web search results
+ * Generates an answer using OpenAI's general knowledge when internal database doesn't have the info
  */
 export async function generateAnswerWithWebSearch(
   query: string,
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<WebSearchResponse> {
-  console.log('[WEB SEARCH] Falling back to web search...');
+  console.log('[GENERAL KNOWLEDGE] Using OpenAI general knowledge for query not in database');
 
-  // Perform web search
-  const searchResults = await performWebSearch(query, 5);
-
-  // If no search results, return a helpful message
-  if (searchResults.length === 0) {
-    console.log('[WEB SEARCH] No search API configured, returning helpful message');
-    return {
-      answer: "I don't have that specific information in my credit card database. To get the most current information, I recommend:\n\n1. Visiting the official website of the credit card issuer\n2. Checking recent financial news sources\n3. Contacting the card issuer directly for the latest details\n\nIf you have questions about credit cards in my database, I'd be happy to help with those!",
-      sources: [],
-      usedWebSearch: false,
-    };
-  }
-
-  // Generate answer using search results
   const openai = getOpenAIClient();
-
-  const searchContext = searchResults
-    .map((result, idx) => `[${idx + 1}] ${result.title}\n${result.snippet}\nSource: ${result.url}`)
-    .join('\n\n');
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
-      content: `You are a helpful credit card assistant. The user asked a question that our internal database couldn't answer, so we searched the web for current information.
+      content: `You are a helpful credit card assistant. The user asked a question that couldn't be fully answered from our internal credit card database.
 
-Use the web search results below to answer their question. Be helpful and cite sources when appropriate.
+Use your general knowledge about credit cards, finance, and the credit industry to provide a helpful answer.
 
-Web Search Results:
-${searchContext}
+IMPORTANT:
+- Be honest if you're uncertain or if the information might be outdated
+- For questions about recent changes or current offers, acknowledge that you may not have the latest information
+- Suggest checking official sources (issuer websites, terms and conditions) for the most current details
+- Provide helpful general information and context
+- If the question requires real-time data (current APRs, latest promotional offers, recent policy changes), acknowledge this limitation
 
-Provide a clear, accurate answer based on these search results. If the search results don't fully answer the question, acknowledge that and provide what information is available.`,
+Keep your response concise (2-4 sentences) and helpful.`,
     },
   ];
 
@@ -189,17 +149,17 @@ Provide a clear, accurate answer based on these search results. If the search re
       max_tokens: 500,
     });
 
-    const answer = completion.choices[0]?.message?.content || "I couldn't generate an answer based on the search results.";
+    const answer = completion.choices[0]?.message?.content ||
+      "I don't have that specific information in my credit card database. For the most current and accurate information, I recommend checking the official website of the credit card issuer or contacting them directly.";
 
-    console.log('[WEB SEARCH] Generated answer from web search results');
+    console.log('[GENERAL KNOWLEDGE] Generated answer using OpenAI general knowledge');
 
     return {
       answer,
-      sources: searchResults,
-      usedWebSearch: true,
+      usedWebSearch: true, // Using general knowledge as fallback
     };
   } catch (error) {
-    console.error('Error generating answer with web search:', error);
+    console.error('Error generating answer with general knowledge:', error);
     throw error;
   }
 }

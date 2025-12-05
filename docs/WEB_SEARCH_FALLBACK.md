@@ -1,10 +1,10 @@
-# Web Search Fallback System
+# General Knowledge Fallback System
 
 ## Overview
 
 The chatbot now uses a **two-tier knowledge system**:
 1. **Primary**: Internal credit card database (Google Sheets)
-2. **Fallback**: Web search for information outside the database
+2. **Fallback**: OpenAI's general knowledge for information outside the database
 
 ## How It Works
 
@@ -33,15 +33,15 @@ Check if cards are needed
             ├─→ Cards Found: Return Recommendations
             └─→ No Cards Found
                     ↓
-                Check if needs web search
+                Check if needs general knowledge fallback
                     ↓
-                    ├─→ YES: Web Search
+                    ├─→ YES: Use OpenAI General Knowledge
                     └─→ NO: "No cards match criteria"
 ```
 
-### Web Search Detection
+### General Knowledge Fallback Detection
 
-The system detects when web search is needed by analyzing if the query requires:
+The system detects when to use OpenAI's general knowledge by analyzing if the query requires:
 
 1. **Real-time information**
    - "Did Chase change the Sapphire bonus recently?"
@@ -66,26 +66,26 @@ The system detects when web search is needed by analyzing if the query requires:
 - Welcome bonuses
 - Points multipliers
 
-❌ **NOT in Database (requires web search):**
-- Real-time news and announcements
-- Recent changes to card terms
-- Market trends and analysis
-- Current economic indicators
-- Company announcements
+❌ **NOT in Database (uses general knowledge fallback):**
+- Questions requiring information beyond the database
+- General credit card concepts not tied to specific cards in database
+- Queries where no matching cards exist
+- Questions about credit card topics outside current database scope
 
 ## Implementation Details
 
 ### Key Functions
 
 #### `needsWebSearch(query, internalKnowledgeAvailable)`
-- Uses GPT-4o-mini to classify if query needs web search
+- Uses GPT-4o-mini to classify if query needs general knowledge fallback
 - Returns boolean + reason
 - Fast classification (~200ms)
 
 #### `generateAnswerWithWebSearch(query, conversationHistory)`
-- Performs web search (when search API is configured)
-- Generates answer using search results
-- Returns answer + sources + usedWebSearch flag
+- Uses OpenAI's general knowledge to answer queries outside database
+- Generates helpful answers with appropriate caveats about currency of information
+- Returns answer + usedWebSearch flag
+- Acknowledges limitations for queries requiring real-time data
 
 #### `isInternalKnowledgeSufficient(query, cards, context)`
 - Checks if found cards are sufficient to answer query
@@ -95,11 +95,11 @@ The system detects when web search is needed by analyzing if the query requires:
 ### Integration Points
 
 1. **`generateGeneralAnswer()`** - Line 839
-   - Checks if web search needed before answering general questions
+   - Checks if general knowledge fallback needed before answering general questions
 
 2. **`generateRecommendations()`** - Lines 1428, 1463
-   - Falls back to web search if no cards match filters
-   - Falls back to web search if no similar cards found
+   - Falls back to general knowledge if no cards match filters
+   - Falls back to general knowledge if no similar cards found
 
 ## Example Queries
 
@@ -113,87 +113,74 @@ The system detects when web search is needed by analyzing if the query requires:
 ✓ "Business cards with welcome bonus"
 ```
 
-### Falls Back to Web Search
+### Falls Back to General Knowledge
 
 ```
 ⚡ "Did Chase change Sapphire Preferred benefits recently?"
+   → Uses general knowledge, notes information may not be current
 ⚡ "What are the latest credit card offers for January 2025?"
-⚡ "Current prime rate affecting APRs"
-⚡ "Recent credit card industry news"
-⚡ "New card launches this month"
+   → Uses general knowledge, recommends checking issuer websites
+⚡ "How does credit card interest work?"
+   → Uses general knowledge to explain concepts
+⚡ "What should I know about credit scores?"
+   → Uses general knowledge for financial education
 ```
 
-## Web Search API Integration
+## How General Knowledge Fallback Works
 
-Currently, the `performWebSearch()` function is a **placeholder**. To enable actual web search, integrate one of:
+The system uses **OpenAI's GPT-3.5-turbo** with general knowledge about credit cards and finance when the internal database doesn't have sufficient information.
 
-### Option 1: Google Custom Search API
-```typescript
-const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
-const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
-const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}`;
-```
+### Key Features
 
-### Option 2: Brave Search API
-```typescript
-const response = await fetch(
-  `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}`,
-  { headers: { 'X-Subscription-Token': process.env.BRAVE_SEARCH_API_KEY } }
-);
-```
+1. **Honest about Limitations**
+   - Acknowledges when information might be outdated
+   - Recommends checking official sources for current data
+   - Transparent about what it knows vs. what requires real-time data
 
-### Option 3: SerpAPI
-```typescript
-const response = await fetch(
-  `https://serpapi.com/search?q=${encodeURIComponent(query)}&api_key=${process.env.SERPAPI_KEY}`
-);
-```
+2. **Helpful Context**
+   - Provides general education about credit card concepts
+   - Explains financial terms and processes
+   - Offers guidance on where to find current information
 
-### Option 4: Bing Search API
-```typescript
-const response = await fetch(
-  `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}`,
-  { headers: { 'Ocp-Apim-Subscription-Key': process.env.BING_SEARCH_KEY } }
-);
-```
+3. **Concise Responses**
+   - Keeps answers brief (2-4 sentences)
+   - Focuses on being helpful without over-promising accuracy
+   - Suggests next steps for users seeking current information
 
-## Without Search API
+### Example Response
 
-If no search API is configured, the system returns a helpful message:
+**Query:** "Did Chase change the Sapphire Preferred welcome bonus recently?"
 
-> "I don't have that specific information in my credit card database. To get the most current information, I recommend:
->
-> 1. Visiting the official website of the credit card issuer
-> 2. Checking recent financial news sources
-> 3. Contacting the card issuer directly for the latest details
->
-> If you have questions about credit cards in my database, I'd be happy to help with those!"
+**Response:**
+> "While I don't have access to real-time updates about specific card changes, welcome bonuses for premium cards like the Chase Sapphire Preferred can vary based on promotions and market conditions. For the most current welcome bonus offer, I recommend visiting Chase's official website or calling their customer service. Card issuers often run limited-time promotional offers that may differ from standard bonuses."
 
 ## Benefits
 
-1. **Comprehensive Coverage**: Answers both database queries and current events
-2. **Intelligent Routing**: Only uses web search when necessary
-3. **Cost Efficient**: Minimizes expensive web search API calls
-4. **Transparent**: Logs when web search is used
-5. **Graceful Degradation**: Works without search API configured
+1. **Comprehensive Coverage**: Answers both database queries and general questions
+2. **Intelligent Routing**: Only uses general knowledge when database lacks information
+3. **Cost Efficient**: Uses existing OpenAI API, no additional search API costs
+4. **Transparent**: Logs when general knowledge fallback is used
+5. **Honest Communication**: Acknowledges limitations about currency of information
+6. **Educational**: Provides helpful context and learning opportunities
 
 ## Monitoring
 
-Check logs for these indicators:
+Check server logs for these indicators:
 
 ```
 [WEB SEARCH DETECTION] Query: "..."
 [WEB SEARCH DETECTION] Needs web search: true, Reason: "..."
-[GENERAL ANSWER] Query requires web search, falling back to web search
-[NO CARDS FOUND] Falling back to web search
-[NO SIMILAR CARDS] Falling back to web search
-[WEB SEARCH] Would search for: "..."
+[GENERAL ANSWER] Query requires general knowledge, using OpenAI fallback
+[NO CARDS FOUND] Falling back to OpenAI general knowledge
+[NO SIMILAR CARDS] Falling back to OpenAI general knowledge
+[GENERAL KNOWLEDGE] Using OpenAI general knowledge for query not in database
+[GENERAL KNOWLEDGE] Generated answer using OpenAI general knowledge
 ```
 
 ## Future Enhancements
 
-1. Cache web search results (TTL: 1 hour)
-2. Combine internal cards + web search for hybrid answers
-3. User preference for web search frequency
-4. Real-time card data updates from issuer websites
-5. News aggregation for credit card updates
+1. Fine-tune a custom model on credit card domain knowledge
+2. Integrate real-time data feeds from card issuers
+3. Add user preference for detail level in general knowledge responses
+4. Implement confidence scores for general knowledge answers
+5. Create a feedback loop to improve answer quality
