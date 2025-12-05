@@ -140,22 +140,34 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 /**
  * Finds the top N most similar cards to a query embedding
+ * If filteredCardIds is provided, only searches within those cards
  */
 export async function findSimilarCards(
   queryEmbedding: number[],
-  topN: number = 20
+  topN: number = 20,
+  filteredCardIds?: string[]
 ): Promise<CardEmbedding[]> {
   const store = await loadEmbeddings();
-  
+
+  // Filter embeddings if filteredCardIds is provided
+  let embeddingsToSearch = store.embeddings;
+  if (filteredCardIds && filteredCardIds.length > 0) {
+    const cardIdSet = new Set(filteredCardIds);
+    embeddingsToSearch = store.embeddings.filter(e => cardIdSet.has(e.cardId));
+    console.log(`[VECTOR SEARCH] Searching within ${embeddingsToSearch.length} filtered cards (out of ${store.embeddings.length} total)`);
+  } else {
+    console.log(`[VECTOR SEARCH] Searching all ${embeddingsToSearch.length} cards`);
+  }
+
   // Compute similarity scores
-  const similarities = store.embeddings.map(cardEmbedding => ({
+  const similarities = embeddingsToSearch.map(cardEmbedding => ({
     cardEmbedding,
     similarity: cosineSimilarity(queryEmbedding, cardEmbedding.embedding),
   }));
-  
+
   // Sort by similarity (descending) and take top N
   similarities.sort((a, b) => b.similarity - a.similarity);
-  
+
   return similarities.slice(0, topN).map(item => item.cardEmbedding);
 }
 

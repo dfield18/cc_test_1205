@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Recommendation, RecommendationsResponse, CardEmbedding } from '@/types';
 import { embedQuery, findSimilarCards, loadEmbeddings } from './embeddings';
 import { cardToText } from './data';
+import { extractFilters, applyFilters, CardFilters } from './filters';
 
 /**
  * Computes cosine similarity between two vectors
@@ -1383,19 +1384,42 @@ export async function generateRecommendations(
     // Step 1: Determine if this query needs card recommendations
     console.log('Determining if card recommendations are needed...');
     const needsCards = await shouldReturnCards(userQuery, conversationHistory);
-    
+
     if (!needsCards) {
       console.log('Query does not require cards, generating general answer...');
       return await generateGeneralAnswer(userQuery, conversationHistory);
     }
 
+    // Step 1.5: Extract filters from user query (PRE-FILTERING)
+    console.log('Extracting filters from user query...');
+    const filters = await extractFilters(userQuery);
+
+    // Apply filters to get subset of cards to search
+    let filteredCardIds: string[] | undefined;
+    if (filters && Object.keys(filters).length > 0) {
+      console.log('Applying pre-filters to card dataset before vector search...');
+      const store = await loadEmbeddings();
+      const allCards = store.cards;
+      const filteredCards = applyFilters(allCards, filters);
+      filteredCardIds = filteredCards.map(card => card.id);
+
+      if (filteredCards.length === 0) {
+        console.warn('No cards match the specified filters');
+        return {
+          recommendations: [],
+          summary: "I couldn't find any credit cards that match your specific criteria. Please try adjusting your requirements or asking about different features.",
+          rawModelAnswer: 'No cards match filters',
+        };
+      }
+    }
+
     // Step 2: Embed the user query
     console.log('Embedding user query...');
     const queryEmbedding = await embedQuery(userQuery);
-    
-    // Step 3: Find similar cards
+
+    // Step 3: Find similar cards (within filtered subset if filters were applied)
     console.log(`Finding top ${topN} similar cards...`);
-    const similarCards = await findSimilarCards(queryEmbedding, topN);
+    const similarCards = await findSimilarCards(queryEmbedding, topN, filteredCardIds);
     
     if (similarCards.length === 0) {
       return {
