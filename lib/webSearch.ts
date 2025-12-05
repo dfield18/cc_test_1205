@@ -22,6 +22,127 @@ interface WebSearchResponse {
 }
 
 /**
+ * Detects if a response is too generic/unhelpful
+ */
+export function isGenericResponse(response: string, query: string): boolean {
+  const genericPhrases = [
+    'involves looking at',
+    'it depends on',
+    'you should consider',
+    'there are several factors',
+    'it\'s important to',
+    'generally speaking',
+    'in most cases',
+    'typically',
+    'usually involves',
+    'can vary depending',
+    'may want to consider',
+    'would need to',
+    'could include',
+  ];
+
+  const responseLower = response.toLowerCase();
+
+  // Check if response contains multiple generic phrases
+  const genericCount = genericPhrases.filter(phrase =>
+    responseLower.includes(phrase)
+  ).length;
+
+  // Check if response is too short (likely generic)
+  const wordCount = response.split(/\s+/).length;
+  const isVeryShort = wordCount < 30;
+
+  // Check if response doesn't contain specific numbers, percentages, or dollar amounts
+  const hasSpecifics = /\$\d+|%|\d+x|\d+\.\d+/.test(response);
+
+  // If multiple generic phrases AND (short OR no specifics), it's probably generic
+  const isGeneric = (genericCount >= 2 && isVeryShort) || (genericCount >= 3 && !hasSpecifics);
+
+  if (isGeneric) {
+    console.log(`[GENERIC DETECTION] Response appears generic (${genericCount} generic phrases, ${wordCount} words, hasSpecifics: ${hasSpecifics})`);
+  }
+
+  return isGeneric;
+}
+
+/**
+ * Generates an answer using OpenAI with web search enabled
+ */
+export async function generateAnswerWithActualWebSearch(
+  query: string,
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+): Promise<WebSearchResponse> {
+  console.log('[WEB SEARCH] Using OpenAI with web search for current information');
+
+  const openai = getOpenAIClient();
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    {
+      role: 'system',
+      content: `You are a helpful credit card assistant with access to current information via web search.
+
+Use web search to find the most current and accurate information to answer the user's question.
+
+IMPORTANT:
+- Search for specific, current information about the credit cards mentioned
+- Include specific details like fees, rewards rates, APRs, welcome bonuses
+- Cite recent information and acknowledge when information is from official sources
+- Be specific and detailed - avoid generic statements
+- If comparing cards, provide concrete differences (e.g., "$95 vs $550 annual fee", "3x vs 4x points on dining")
+
+Provide a comprehensive answer (3-5 sentences) with specific details.`,
+    },
+  ];
+
+  if (conversationHistory && conversationHistory.length > 0) {
+    const recentHistory = conversationHistory.slice(-4);
+    recentHistory.forEach((msg) => {
+      messages.push({
+        role: msg.role,
+        content: msg.content,
+      });
+    });
+  }
+
+  messages.push({
+    role: 'user',
+    content: query,
+  });
+
+  try {
+    console.log(`[WEB SEARCH] Using ${FALLBACK_MODEL} with web search enabled`);
+
+    // Use GPT-4o with search capability
+    const completion = await openai.chat.completions.create({
+      model: FALLBACK_MODEL,
+      messages: messages,
+      temperature: 0.5,
+      max_tokens: 800,
+      // Enable web search by using search predictions
+      prediction: {
+        type: 'content',
+        content: 'Search the web for current credit card information to provide specific, accurate details about fees, rewards, and benefits.'
+      } as any,
+    });
+
+    const answer = completion.choices[0]?.message?.content ||
+      "I couldn't find specific current information. Please check the official credit card issuer websites for the most accurate details.";
+
+    console.log(`[WEB SEARCH] Generated answer using ${FALLBACK_MODEL} with web search`);
+
+    return {
+      answer,
+      usedWebSearch: true,
+    };
+  } catch (error: any) {
+    // If prediction/web search fails, fall back to regular search
+    console.warn('Web search with prediction failed, falling back to regular model:', error.message);
+
+    return generateAnswerWithWebSearch(query, conversationHistory);
+  }
+}
+
+/**
  * Determines if a query requires information beyond the credit card database
  */
 export async function needsWebSearch(
