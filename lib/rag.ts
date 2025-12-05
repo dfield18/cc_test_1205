@@ -840,14 +840,14 @@ async function generateGeneralAnswer(
   const requiresWebSearch = await needsWebSearch(userQuery, false);
 
   if (requiresWebSearch) {
-    console.log('[GENERAL ANSWER] Query requires general knowledge, using OpenAI fallback');
-    const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+    console.log('[GENERAL ANSWER] Query requires current information, using web search');
+    const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
     const title = await generateRecommendationTitle(userQuery);
 
     return {
       recommendations: [],
       summary: webSearchResult.answer,
-      rawModelAnswer: JSON.stringify({ usedGeneralKnowledge: true }),
+      rawModelAnswer: JSON.stringify({ usedWebSearch: true }),
       title: title,
     };
   }
@@ -1442,17 +1442,17 @@ export async function generateRecommendations(
       if (filteredCards.length === 0) {
         console.warn('No cards match the specified filters - checking if web search needed');
 
-        // Check if we should fall back to general knowledge
+        // Check if we should fall back to web search
         const shouldUseWebSearch = await needsWebSearch(userQuery, false);
         if (shouldUseWebSearch) {
-          console.log('[NO CARDS FOUND] Falling back to OpenAI general knowledge');
-          const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+          console.log('[NO CARDS FOUND] Falling back to web search');
+          const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
           const title = await generateRecommendationTitle(userQuery);
 
           return {
             recommendations: [],
             summary: webSearchResult.answer,
-            rawModelAnswer: JSON.stringify({ usedGeneralKnowledge: true }),
+            rawModelAnswer: JSON.stringify({ usedWebSearch: true }),
             title: title,
           };
         }
@@ -1477,17 +1477,17 @@ export async function generateRecommendations(
     if (similarCards.length === 0) {
       console.warn('No similar cards found - checking if web search needed');
 
-      // Check if we should fall back to general knowledge
+      // Check if we should fall back to web search
       const shouldUseWebSearch = await needsWebSearch(userQuery, false);
       if (shouldUseWebSearch) {
-        console.log('[NO SIMILAR CARDS] Falling back to OpenAI general knowledge');
-        const webSearchResult = await generateAnswerWithWebSearch(userQuery, conversationHistory);
+        console.log('[NO SIMILAR CARDS] Falling back to web search');
+        const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
         const title = await generateRecommendationTitle(userQuery);
 
         return {
           recommendations: [],
           summary: webSearchResult.answer,
-          rawModelAnswer: JSON.stringify({ usedGeneralKnowledge: true }),
+          rawModelAnswer: JSON.stringify({ usedWebSearch: true }),
           title: title,
         };
       }
