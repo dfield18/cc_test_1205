@@ -3,7 +3,7 @@ import { Recommendation, RecommendationsResponse, CardEmbedding } from '@/types'
 import { embedQuery, findSimilarCards, loadEmbeddings } from './embeddings';
 import { cardToText } from './data';
 import { extractFilters, applyFilters, CardFilters } from './filters';
-import { needsWebSearch, generateAnswerWithWebSearch, isInternalKnowledgeSufficient } from './webSearch';
+import { needsWebSearch, generateAnswerWithWebSearch, generateAnswerWithActualWebSearch, isInternalKnowledgeSufficient, isGenericResponse } from './webSearch';
 
 /**
  * Computes cosine similarity between two vectors
@@ -893,12 +893,30 @@ Return JSON: {"summary": "your answer"}`,
     const responseText = completion.choices[0]?.message?.content || '{}';
     console.log('generateGeneralAnswer response:', responseText);
     const response = JSON.parse(responseText);
+    const summary = response.summary || 'I can help you with credit card questions. Would you like specific card recommendations?';
+
+    // Check if the response is too generic
+    const isGeneric = isGenericResponse(summary, userQuery);
+
+    if (isGeneric) {
+      console.log('[GENERIC DETECTED] Response is too generic, retrying with web search...');
+      const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
+      const title = await generateRecommendationTitle(userQuery);
+
+      return {
+        recommendations: [],
+        summary: webSearchResult.answer,
+        rawModelAnswer: JSON.stringify({ usedWebSearch: true, retriedDueToGeneric: true }),
+        title: title,
+      };
+    }
+
     // Generate a title even for general answers
     const title = await generateRecommendationTitle(userQuery);
 
     return {
       recommendations: [],
-      summary: response.summary || 'I can help you with credit card questions. Would you like specific card recommendations?',
+      summary: summary,
       rawModelAnswer: responseText,
       title: title,
     };
