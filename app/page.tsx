@@ -2394,60 +2394,61 @@ export default function Home() {
   // Fetch a cartoon on initial page load (only once)
   useEffect(() => {
     if (hasInitialCartoonRef.current) return; // Already fetched initial cartoon
-    
+
     const fetchCartoon = async () => {
       try {
         // Get current shown cartoons from ref (always has latest value)
         const currentShown = shownCartoonsRef.current;
-        
+
         // Detect device type
         const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const deviceType = isMobile ? 'mobile' : 'desktop';
-        
+
         console.log(`[Cartoon] Detected device type: ${deviceType} (width: ${window.innerWidth}px)`);
         console.log(`[Cartoon] Loading from folder: ${deviceType === 'mobile' ? 'mobile' : 'desktop'}`);
-        
+
         // Build query parameter with shown cartoons and device type
-        const shownParam = currentShown.length > 0 
+        const shownParam = currentShown.length > 0
           ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
           : '';
-        
+
         const apiUrl = `/api/cartoon?t=${Date.now()}&device=${deviceType}${shownParam}`;
         console.log(`[Cartoon] Fetching from API: ${apiUrl}`);
-        
+
         const response = await fetch(apiUrl);
         const data = await response.json();
-        
+
         if (data.imageUrl) {
           console.log(`[Cartoon] Successfully loaded cartoon from: ${data.imageUrl}`);
           console.log(`[Cartoon] Source: ${data.source || 'unknown'}`);
         } else {
           console.warn('[Cartoon] No imageUrl in response:', data);
         }
-        
+
         if (data.imageUrl) {
-          // Double-check that this cartoon hasn't been shown (in case of race conditions)
-          const isAlreadyShown = shownCartoonsRef.current.includes(data.imageUrl);
-          if (!isAlreadyShown) {
-            // Only set the cartoon if it's not already shown
-            setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
-            hasInitialCartoonRef.current = true; // Mark as fetched
-            // Add to shown cartoons using functional update to ensure we have latest state
-            setShownCartoons(prev => {
-              if (!prev.includes(data.imageUrl)) {
-                return [...prev, data.imageUrl];
-              }
-              return prev;
-            });
-          } else {
-            console.warn('Received already-shown cartoon on initial load, will not display');
-          }
+          // Always set the cartoon, even if it was shown before
+          // Better to show a repeated cartoon than no cartoon at all
+          setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+          hasInitialCartoonRef.current = true; // Mark as fetched
+
+          // Add to shown cartoons using functional update
+          setShownCartoons(prev => {
+            if (!prev.includes(data.imageUrl)) {
+              return [...prev, data.imageUrl];
+            }
+            return prev;
+          });
+          console.log('[Cartoon] Initial cartoon set successfully');
+        } else {
+          console.error('[Cartoon] Failed to load initial cartoon - no imageUrl provided');
+          hasInitialCartoonRef.current = true; // Still mark as attempted to avoid retry loop
         }
       } catch (error) {
-        console.error('Error fetching cartoon:', error);
+        console.error('[Cartoon] Error fetching initial cartoon:', error);
+        hasInitialCartoonRef.current = true; // Mark as attempted even on error
       }
     };
-    
+
     // Fetch cartoon on initial load
     fetchCartoon();
   }, []); // Empty dependency array - only run on mount
@@ -2459,75 +2460,60 @@ export default function Home() {
     // 2. It transitioned from false to true (not just staying true)
     // 3. We've already done the initial fetch
     if (isLoading && !prevIsLoadingRef.current && hasInitialCartoonRef.current) {
-      // Clear the current cartoon immediately so old one doesn't show while new one loads
-      setCurrentCartoon(null);
-      
+      // DON'T clear the current cartoon - keep it visible until new one loads
+      // This ensures there's always a cartoon on desktop
+
       const fetchCartoon = async (retryCount = 0) => {
         try {
           // Get current shown cartoons from ref (always has latest value)
           const currentShown = shownCartoonsRef.current;
-          
+
           // Detect device type
           const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           const deviceType = isMobile ? 'mobile' : 'desktop';
-          
+
           console.log(`[Cartoon] Loading new cartoon - Device: ${deviceType} (width: ${window.innerWidth}px)`);
           console.log(`[Cartoon] Loading from folder: ${deviceType === 'mobile' ? 'mobile' : 'desktop'}`);
-          
+
           // Build query parameter with shown cartoons and device type
-          const shownParam = currentShown.length > 0 
+          const shownParam = currentShown.length > 0
             ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
             : '';
-          
+
           const apiUrl = `/api/cartoon?t=${Date.now()}&device=${deviceType}${shownParam}`;
           console.log(`[Cartoon] Fetching from API: ${apiUrl}`);
-          
+
           const response = await fetch(apiUrl);
           const data = await response.json();
-          
+
           if (data.imageUrl) {
-            console.log(`[Cartoon] Successfully loaded cartoon from: ${data.imageUrl}`);
+            console.log(`[Cartoon] Successfully loaded new cartoon from: ${data.imageUrl}`);
             console.log(`[Cartoon] Source: ${data.source || 'unknown'}`);
           } else {
             console.warn('[Cartoon] No imageUrl in response:', data);
           }
-          
+
           if (data.imageUrl) {
-            // Double-check that this cartoon hasn't been shown (in case of race conditions)
-            const isAlreadyShown = shownCartoonsRef.current.includes(data.imageUrl);
-            if (!isAlreadyShown) {
-              // Only set the cartoon if it's not already shown
-              setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
-              // Add to shown cartoons using functional update to ensure we have latest state
-              setShownCartoons(prev => {
-                if (!prev.includes(data.imageUrl)) {
-                  return [...prev, data.imageUrl];
-                }
-                return prev;
-              });
-            } else {
-              // If it's already shown and we haven't retried too many times, try again
-              if (retryCount < 3) {
-                console.warn('Received already-shown cartoon, retrying...');
-                // Wait a bit before retrying to avoid rapid requests
-                setTimeout(() => fetchCartoon(retryCount + 1), 100);
-              } else {
-                console.warn('Received already-shown cartoon after retries, will not display');
+            // Always set the new cartoon, even if shown before
+            // Better to show a repeated cartoon than no cartoon or an old one
+            setCurrentCartoon({ imageUrl: data.imageUrl, source: data.source });
+
+            // Add to shown cartoons
+            setShownCartoons(prev => {
+              if (!prev.includes(data.imageUrl)) {
+                return [...prev, data.imageUrl];
               }
-            }
+              return prev;
+            });
+            console.log('[Cartoon] New cartoon set successfully');
           } else {
-            // If no imageUrl in response, retry if we haven't exceeded retry limit
-            if (retryCount < 3) {
-              console.warn('No imageUrl in response, retrying...');
-              setTimeout(() => fetchCartoon(retryCount + 1), 100);
-            }
+            // If no imageUrl in response, keep current cartoon (don't clear it)
+            console.warn('[Cartoon] No new cartoon available, keeping current cartoon visible');
           }
         } catch (error) {
-          console.error('Error fetching cartoon:', error);
-          // Retry on error if we haven't exceeded retry limit
-          if (retryCount < 3) {
-            setTimeout(() => fetchCartoon(retryCount + 1), 200);
-          }
+          console.error('[Cartoon] Error fetching new cartoon:', error);
+          // On error, keep the current cartoon visible - don't clear it
+          console.log('[Cartoon] Keeping current cartoon due to fetch error');
         }
       };
       fetchCartoon();
