@@ -520,6 +520,10 @@ IMPORTANT:
 /**
  * Generates a detailed response about a specific card
  */
+/**
+ * STEP 4: Generate response for specific card questions
+ * Uses Google Sheet first, web search if unsure
+ */
 async function generateSpecificCardResponse(
   card: CardEmbedding,
   userQuery: string,
@@ -527,12 +531,30 @@ async function generateSpecificCardResponse(
 ): Promise<RecommendationsResponse> {
   const openai = getOpenAIClient();
   const cardData = card.card;
-  
-  // Build a comprehensive description of the card
+
+  // Check if query needs current information (e.g., "what's the current bonus?")
+  const requiresWebSearch = await needsWebSearch(userQuery, false);
+
+  if (requiresWebSearch) {
+    console.log('[STEP 4 - SPECIFIC CARD] Query requires current information, using web search');
+    // Include card name in the query for web search context
+    const searchQuery = `${userQuery} for ${cardData.credit_card_name}`;
+    const webSearchResult = await generateAnswerWithActualWebSearch(searchQuery, conversationHistory);
+    const title = await generateRecommendationTitle(userQuery);
+
+    return {
+      recommendations: [],
+      summary: webSearchResult.answer,
+      rawModelAnswer: JSON.stringify({ usedWebSearch: true }),
+      title: title,
+    };
+  }
+
+  // Build a comprehensive description of the card from Google Sheet
   const cardDetails: string[] = [];
   cardDetails.push(`Card Name: ${cardData.credit_card_name}`);
   cardDetails.push(`Application URL: ${cardData.url_application}`);
-  
+
   // Include all relevant fields
   const relevantFields = [
     'annual_fee', 'intro_offer', 'welcome_bonus', 'sign_up_bonus', 'intro_bonus',
@@ -542,13 +564,13 @@ async function generateSpecificCardResponse(
     'application_fee', 'app_fee', 'intro_apr', 'apr',
     'card_summary', 'card_highlights'
   ];
-  
+
   for (const field of relevantFields) {
     if (cardData[field] && String(cardData[field]).trim()) {
       cardDetails.push(`${field}: ${String(cardData[field]).trim()}`);
     }
   }
-  
+
   const cardContext = cardDetails.join('\n');
   
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -830,7 +852,101 @@ Examples that DON'T need cards (needs_cards: false) - ONLY these clear cases:
 }
 
 /**
- * Generates a general answer without card recommendations
+ * STEP 2: Check if question is about credit cards
+ * Rejects off-topic questions (weather, science, sports, etc.)
+ */
+async function isCreditCardQuestion(userQuery: string): Promise<boolean> {
+  const openai = getOpenAIClient();
+
+  const systemPrompt = `You are a classifier that determines if a question is about credit cards.
+
+Credit card topics include:
+- Credit card features, benefits, rewards
+- APR, annual fees, interest rates
+- Points, miles, cash back
+- Credit card recommendations
+- Specific credit cards
+- Credit scores (as they relate to credit cards)
+- Credit card applications, approvals
+- Credit card companies and issuers
+
+NOT credit card topics:
+- Weather
+- Sports scores
+- Science, history, general knowledge
+- Current events unrelated to credit cards
+- Personal advice unrelated to credit cards
+
+Return JSON:
+{
+  "isCreditCardQuestion": boolean,
+  "reason": "brief explanation"
+}
+
+Examples:
+"What's the weather?" → {"isCreditCardQuestion": false, "reason": "Weather is not related to credit cards"}
+"What is APR?" → {"isCreditCardQuestion": true, "reason": "APR is a credit card concept"}
+"Who won the game?" → {"isCreditCardQuestion": false, "reason": "Sports scores are not related to credit cards"}
+"Best travel cards?" → {"isCreditCardQuestion": true, "reason": "Asking for credit card recommendations"}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userQuery }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0,
+    });
+
+    const content = response.choices[0].message.content;
+    if (!content) {
+      return true; // Default to assuming it's a credit card question
+    }
+
+    const result = JSON.parse(content);
+    console.log(`[STEP 2] Is credit card question: ${result.isCreditCardQuestion}, Reason: ${result.reason}`);
+
+    return result.isCreditCardQuestion;
+  } catch (error) {
+    console.error('Error detecting credit card question:', error);
+    return true; // Default to assuming it's a credit card question
+  }
+}
+
+/**
+ * STEP 3: Check if question is about general credit card attributes
+ * (not specific cards or recommendations)
+ */
+async function isGeneralAttributeQuestion(userQuery: string): Promise<boolean> {
+  const queryLower = userQuery.toLowerCase().trim();
+
+  // Patterns that indicate general attribute questions
+  const generalPatterns = [
+    /^what is\s+/i,                  // "What is cash back?"
+    /^what's\s+/i,                    // "What's APR?"
+    /^what are\s+/i,                  // "What are credit card rewards?"
+    /^how do\s+/i,                    // "How do points work?"
+    /^how does\s+/i,                  // "How does APR work?"
+    /^explain\s+/i,                   // "Explain APR"
+    /^can you explain\s+/i,           // "Can you explain cash back?"
+    /^tell me about\s+(apr|annual fee|cash back|points|miles|rewards|interest)/i, // "Tell me about APR"
+    /^what does\s+/i,                 // "What does APR mean?"
+    /^define\s+/i,                    // "Define APR"
+    /^history of\s+/i,                // "History of credit cards"
+    /^drawbacks of\s+/i,              // "Drawbacks of high APR"
+    /what's the difference between.*and/i, // "What's the difference between cash back and points?"
+  ];
+
+  const isGeneral = generalPatterns.some(pattern => pattern.test(userQuery));
+
+  console.log(`[STEP 3] Is general attribute question: ${isGeneral}`);
+  return isGeneral;
+}
+/**
+ * STEP 3: Generate answer for general credit card attribute questions
+ * Keeps responses to 1-3 sentences, uses web search if unsure
  */
 async function generateGeneralAnswer(
   userQuery: string,
@@ -840,7 +956,7 @@ async function generateGeneralAnswer(
   const requiresWebSearch = await needsWebSearch(userQuery, false);
 
   if (requiresWebSearch) {
-    console.log('[GENERAL ANSWER] Query requires current information, using web search');
+    console.log('[STEP 3 - GENERAL ANSWER] Query requires current information, using web search');
     const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
     const title = await generateRecommendationTitle(userQuery);
 
@@ -860,14 +976,19 @@ async function generateGeneralAnswer(
       role: 'system',
       content: `You are a helpful credit card assistant. Answer the user's question about credit cards in a friendly, conversational way.
 
+CRITICAL REQUIREMENTS:
+- Keep your response to 1-3 sentences
+- Be concise and direct
+- If you're unsure of the answer, say "I'm not certain about this"
+- For definition or explanation questions, provide a clear, direct answer about the concept itself
+- Do NOT mention specific credit cards or provide card recommendations
+- Just explain the concept
+
 FORMATTING:
 - Use **bold** for important terms and key concepts
 - Use bullet points (•) for lists when helpful
-- Keep responses concise but well-structured
 
-IMPORTANT: For definition or explanation questions (e.g., "what is cash back?", "how does APR work?"), provide a clear, direct answer about the concept itself. Do NOT mention specific credit cards or provide card recommendations. Just explain the concept.
-
-Return JSON: {"summary": "your markdown-formatted answer"}`,
+Return JSON: {"summary": "your 1-3 sentence markdown-formatted answer", "uncertain": boolean}`,
     },
   ];
 
@@ -896,15 +1017,30 @@ Return JSON: {"summary": "your markdown-formatted answer"}`,
     });
 
     const responseText = completion.choices[0]?.message?.content || '{}';
-    console.log('generateGeneralAnswer response:', responseText);
+    console.log('[STEP 3 - GENERAL ANSWER] LLM response:', responseText);
     const response = JSON.parse(responseText);
     const summary = response.summary || 'I can help you with credit card questions. Would you like specific card recommendations?';
+    const uncertain = response.uncertain || false;
+
+    // If LLM is uncertain, use web search
+    if (uncertain) {
+      console.log('[STEP 3 - UNCERTAIN] LLM is uncertain, using web search...');
+      const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
+      const title = await generateRecommendationTitle(userQuery);
+
+      return {
+        recommendations: [],
+        summary: webSearchResult.answer,
+        rawModelAnswer: JSON.stringify({ usedWebSearch: true, reason: 'uncertain' }),
+        title: title,
+      };
+    }
 
     // Check if the response is too generic
     const isGeneric = isGenericResponse(summary, userQuery);
 
     if (isGeneric) {
-      console.log('[GENERIC DETECTED] Response is too generic, retrying with web search...');
+      console.log('[STEP 3 - GENERIC DETECTED] Response is too generic, retrying with web search...');
       const webSearchResult = await generateAnswerWithActualWebSearch(userQuery, conversationHistory);
       const title = await generateRecommendationTitle(userQuery);
 
@@ -1381,55 +1517,88 @@ export async function generateRecommendations(
   previousRecommendations?: Recommendation[]
 ): Promise<RecommendationsResponse> {
   try {
-    // Step -1: Check if user is asking about how the chatbot was trained
+    // ============================================================
+    // STEP 1: Training Question Check
+    // ============================================================
     if (isTrainingQuestion(userQuery)) {
-      console.log('Detected training/architecture question, returning custom response');
+      console.log('[STEP 1] Training/architecture question detected');
       return {
         recommendations: [],
         summary: "I am powered by a specialized integration of OpenAI's GPT models and a custom financial database. My architecture combines Natural Language Processing (NLP) with a retrieval system that constantly combs through 1,000+ verified sources (such as APR tables, issuer terms, and redemption portals). This allows me to cross-reference complex credit card data in real-time to answer your questions.",
         rawModelAnswer: 'Training question detected',
       };
     }
-    
-    // Step 0: Check if user is asking about previously shown cards
+
+    // ============================================================
+    // STEP 2: Is the question about credit cards?
+    // ============================================================
+    const isCCQuestion = await isCreditCardQuestion(userQuery);
+
+    if (!isCCQuestion) {
+      console.log('[STEP 2] Question is NOT about credit cards, returning limitation message');
+      return {
+        recommendations: [],
+        summary: "I'm a credit card assistant and can only answer questions related to credit cards. Please ask me about credit card features, rewards, recommendations, or specific cards.",
+        rawModelAnswer: 'Off-topic question',
+      };
+    }
+
+    console.log('[STEP 2] Question is about credit cards, continuing...');
+
+    // ============================================================
+    // STEP 3: General credit card attributes (not recommendations)?
+    // ============================================================
+    const isGeneralAttribute = await isGeneralAttributeQuestion(userQuery);
+
+    if (isGeneralAttribute) {
+      console.log('[STEP 3] General attribute question detected (what is APR, etc.)');
+      return await generateGeneralAnswer(userQuery, conversationHistory);
+    }
+
+    console.log('[STEP 3] Not a general attribute question, continuing...');
+
+    // ============================================================
+    // STEP 4: Specific Card(s) Question
+    // ============================================================
+
+    // Step 4a: Check if asking about previously shown cards
+    // ("tell me more about card 3", "what about this card")
     if (previousRecommendations && previousRecommendations.length > 0) {
-      console.log('Checking if query is about previously shown cards...');
+      console.log('[STEP 4a] Checking if query is about previously shown cards...');
       const isAboutPreviousCards = await detectQuestionAboutPreviousCards(userQuery, previousRecommendations);
-      
+
       if (isAboutPreviousCards) {
-        console.log('Question is about previously shown cards, generating response using only those cards');
+        console.log('[STEP 4a] Question is about previously shown cards');
         return await generateResponseAboutPreviousCards(userQuery, previousRecommendations, conversationHistory);
       }
     }
-    
-    // Step 1: Check if user is asking about a specific card by name
-    // ALWAYS check for specific cards FIRST, even if recommendation keywords are present
-    // This ensures queries like "Show me the Chase Sapphire Preferred" return only that card
-    console.log('Checking if query is about a specific card...');
+
+    // Step 4b: Check if asking about a specific card by name
+    // ("Show me Chase Sapphire Preferred", "Tell me about Capital One Venture")
+    console.log('[STEP 4b] Checking if query is about a specific card by name...');
     const specificCardName = await detectSpecificCardQuery(userQuery);
-    
+
     if (specificCardName) {
-      console.log(`Detected specific card query: ${specificCardName}`);
+      console.log(`[STEP 4b] Specific card query detected: ${specificCardName}`);
       const specificCard = await findCardByName(specificCardName);
-      
+
       if (specificCard) {
-        console.log(`Found specific card: ${specificCard.card.credit_card_name}`);
-        // Return response with ONLY this specific card
+        console.log(`[STEP 4b] Found specific card: ${specificCard.card.credit_card_name}`);
         return await generateSpecificCardResponse(specificCard, userQuery, conversationHistory);
       } else {
-        console.log(`Could not find card matching: ${specificCardName}`);
-        // Continue with normal flow - maybe the card name was misidentified
+        console.log(`[STEP 4b] Could not find card matching: ${specificCardName}`);
+        // Continue to Step 5 - maybe it's a recommendation request
       }
     }
-    
-    // Step 1: Determine if this query needs card recommendations
-    console.log('Determining if card recommendations are needed...');
-    const needsCards = await shouldReturnCards(userQuery, conversationHistory);
 
-    if (!needsCards) {
-      console.log('Query does not require cards, generating general answer...');
-      return await generateGeneralAnswer(userQuery, conversationHistory);
-    }
+    console.log('[STEP 4] Not a specific card question, continuing to recommendations...');
+
+    // ============================================================
+    // STEP 5: Credit Card Recommendations
+    // ============================================================
+    console.log('[STEP 5] User wants credit card recommendations');
+
+    // Continue with normal recommendation flow...
 
     // Step 1.5: Extract filters from user query (PRE-FILTERING)
     console.log('Extracting filters from user query...');
