@@ -168,7 +168,7 @@ function hasNoAnnualFee(card: any): boolean {
                   feeString === '$0 annual fee' ||
                   feeString === 'free' ||
                   feeString === '$0.00' ||
-                  feeString.match(/^\$?0+(\.0+)?$/); // Matches $0, 0, $0.00, etc.
+                  !!feeString.match(/^\$?0+(\.0+)?$/); // Matches $0, 0, $0.00, etc. (!! converts to boolean)
 
   console.log(`[FILTER DEBUG] Card ${card.credit_card_name || card.id}: fee="${feeString}" (string), isNoFee=${isNoFee}`);
   return isNoFee;
