@@ -51,6 +51,14 @@ export interface RecommendationsResponse {
   summary?: string; // Conversational summary of recommendations
   rawModelAnswer?: string;
   title?: string; // Short 2-5 word description of what the recommendations are for
+
+  // NEW: Debugging metadata for browser console logging
+  metadata?: {
+    step: number; // Which step (1-5) was executed
+    stepName: string; // Human-readable step name
+    usedWebSearch: boolean; // Whether web search was used
+    reason?: string; // Additional context about the decision
+  };
 }
 
 /**

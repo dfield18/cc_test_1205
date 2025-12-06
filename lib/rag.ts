@@ -965,6 +965,12 @@ async function generateGeneralAnswer(
       summary: webSearchResult.answer,
       rawModelAnswer: JSON.stringify({ usedWebSearch: true }),
       title: title,
+      metadata: {
+        step: 3,
+        stepName: 'General Attribute Question',
+        usedWebSearch: true,
+        reason: 'Requires current information',
+      },
     };
   }
 
@@ -1033,6 +1039,12 @@ Return JSON: {"summary": "your 1-3 sentence markdown-formatted answer", "uncerta
         summary: webSearchResult.answer,
         rawModelAnswer: JSON.stringify({ usedWebSearch: true, reason: 'uncertain' }),
         title: title,
+        metadata: {
+          step: 3,
+          stepName: 'General Attribute Question',
+          usedWebSearch: true,
+          reason: 'LLM was uncertain',
+        },
       };
     }
 
@@ -1049,6 +1061,12 @@ Return JSON: {"summary": "your 1-3 sentence markdown-formatted answer", "uncerta
         summary: webSearchResult.answer,
         rawModelAnswer: JSON.stringify({ usedWebSearch: true, retriedDueToGeneric: true }),
         title: title,
+        metadata: {
+          step: 3,
+          stepName: 'General Attribute Question',
+          usedWebSearch: true,
+          reason: 'Response was too generic',
+        },
       };
     }
 
@@ -1060,6 +1078,12 @@ Return JSON: {"summary": "your 1-3 sentence markdown-formatted answer", "uncerta
       summary: summary,
       rawModelAnswer: responseText,
       title: title,
+      metadata: {
+        step: 3,
+        stepName: 'General Attribute Question',
+        usedWebSearch: false,
+        reason: 'Used internal knowledge',
+      },
     };
   } catch (error) {
     console.error('Error in generateGeneralAnswer:', error);
@@ -1526,6 +1550,12 @@ export async function generateRecommendations(
         recommendations: [],
         summary: "I am powered by a specialized integration of OpenAI's GPT models and a custom financial database. My architecture combines Natural Language Processing (NLP) with a retrieval system that constantly combs through 1,000+ verified sources (such as APR tables, issuer terms, and redemption portals). This allows me to cross-reference complex credit card data in real-time to answer your questions.",
         rawModelAnswer: 'Training question detected',
+        metadata: {
+          step: 1,
+          stepName: 'Training Question Check',
+          usedWebSearch: false,
+          reason: 'Question about chatbot architecture/training',
+        },
       };
     }
 
@@ -1540,6 +1570,12 @@ export async function generateRecommendations(
         recommendations: [],
         summary: "I'm a credit card assistant and can only answer questions related to credit cards. Please ask me about credit card features, rewards, recommendations, or specific cards.",
         rawModelAnswer: 'Off-topic question',
+        metadata: {
+          step: 2,
+          stepName: 'Credit Card Topic Check',
+          usedWebSearch: false,
+          reason: 'Question not related to credit cards',
+        },
       };
     }
 
