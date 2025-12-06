@@ -60,6 +60,15 @@ Output: {"cardType": ["travel"], "annualFeeMax": 100}
 Query: "Chase cashback cards"
 Output: {"issuer": ["Chase"], "rewardsType": ["cashback"]}
 
+Query: "cards with good cash back rewards"
+Output: {"rewardsType": ["cashback"]}
+
+Query: "best cash back cards"
+Output: {"rewardsType": ["cashback"]}
+
+Query: "travel rewards cards"
+Output: {"rewardsType": ["points", "miles"], "cardType": ["travel"]}
+
 Query: "business cards with no foreign transaction fees"
 Output: {"cardType": ["business"], "targetConsumer": ["business"], "hasNoForeignTransactionFee": true}
 
@@ -215,12 +224,44 @@ export function applyFilters(cards: any[], filters: CardFilters): any[] {
       const rewardsType = String(card.rewards_type || '').toLowerCase();
       const rewardsRate = String(card.rewards_rate || '').toLowerCase();
       const cardName = String(card.credit_card_name || '').toLowerCase();
+      const perks = String(card.perks || '').toLowerCase();
+      const cardSummary = String(card.card_summary || '').toLowerCase();
+      const pointsMultipliers = String(card.points_multipliers || '').toLowerCase();
 
       return filters.rewardsType!.some(type => {
         const lowerType = type.toLowerCase();
+
+        // Special handling for cashback vs points/miles distinction
+        if (lowerType === 'cashback' || lowerType === 'cash back') {
+          // MUST have "cash back" or "cashback" mentioned explicitly
+          const hasCashBack =
+            rewardsRate.includes('cash back') ||
+            cardName.includes('cash back') ||
+            perks.includes('cash back') ||
+            cardSummary.includes('cash back') ||
+            rewardsRate.includes('cashback') ||
+            cardName.includes('cashback') ||
+            perks.includes('cashback') ||
+            cardSummary.includes('cashback');
+
+          // MUST NOT be primarily a points/miles card
+          const isPointsMilesCard =
+            pointsMultipliers.includes('points') ||
+            pointsMultipliers.includes('miles') ||
+            cardSummary.includes('points') && !cardSummary.includes('cash back') ||
+            cardSummary.includes('miles') && !cardSummary.includes('cash back') ||
+            cardName.includes('sapphire') ||
+            cardName.includes('venture') ||
+            cardName.includes('ink business');
+
+          return hasCashBack && !isPointsMilesCard;
+        }
+
+        // For points/miles, check as before
         return rewardsType.includes(lowerType) ||
                rewardsRate.includes(lowerType) ||
-               cardName.includes(lowerType);
+               cardName.includes(lowerType) ||
+               pointsMultipliers.includes(lowerType);
       });
     });
     console.log(`[FILTER] Rewards type ${filters.rewardsType.join(', ')}: ${initialCount} → ${filteredCards.length} cards`);
