@@ -1509,37 +1509,46 @@ export async function generateRecommendations(
     // If no top_card cards are in the similar cards, fetch some top_card cards and add them
     const topCardsInSimilar = similarCards.filter(card => isTopCard(card.card));
     let allCandidateCards = [...similarCards];
-    
+
     console.log(`Found ${topCardsInSimilar.length} top_card cards in initial similar cards`);
     if (topCardsInSimilar.length > 0) {
       console.log('Top_card cards in similar:', topCardsInSimilar.map(c => c.card.credit_card_name));
     }
-    
+
     if (topCardsInSimilar.length === 0) {
       console.log('No top_card cards found in similar cards, fetching top_card cards separately...');
       const store = await loadEmbeddings();
-      const allTopCards = store.embeddings.filter(card => isTopCard(card.card));
-      
-      console.log(`Found ${allTopCards.length} total top_card cards in database`);
-      
+
+      // CRITICAL FIX: Respect the pre-filter when fetching top cards
+      // If we filtered to specific cards (e.g., cash back only), only get top cards from that subset
+      let allTopCards = store.embeddings.filter(card => isTopCard(card.card));
+
+      if (filteredCardIds && filteredCardIds.length > 0) {
+        const filteredIdSet = new Set(filteredCardIds);
+        allTopCards = allTopCards.filter(card => filteredIdSet.has(card.card.id));
+        console.log(`Filtered top_card cards to match pre-filter (${filteredCardIds.length} allowed IDs): ${allTopCards.length} top cards remaining`);
+      }
+
+      console.log(`Found ${allTopCards.length} total top_card cards in ${filteredCardIds && filteredCardIds.length > 0 ? 'filtered' : 'full'} database`);
+
       if (allTopCards.length > 0) {
         // Compute similarity for top_card cards and get the most relevant ones
         const topCardSimilarities = allTopCards.map(cardEmbedding => ({
           cardEmbedding,
           similarity: cosineSimilarity(queryEmbedding, cardEmbedding.embedding),
         }));
-        
+
         // Sort by similarity and take top 2-3 top_card cards
         topCardSimilarities.sort((a, b) => b.similarity - a.similarity);
         const bestTopCards = topCardSimilarities.slice(0, 3).map(item => item.cardEmbedding);
-        
+
         console.log(`Selected ${bestTopCards.length} most relevant top_card cards:`, bestTopCards.map(c => c.card.credit_card_name));
-        
+
         // Add top_card cards to the candidate list (avoid duplicates)
-        const normalizeCardName = (name: string) => 
+        const normalizeCardName = (name: string) =>
           name.toLowerCase().replace(/[®™©]/g, '').trim();
         const existingCardNames = new Set(allCandidateCards.map(c => normalizeCardName(c.card.credit_card_name)));
-        
+
         for (const topCard of bestTopCards) {
           if (!existingCardNames.has(normalizeCardName(topCard.card.credit_card_name))) {
             allCandidateCards.push(topCard);
