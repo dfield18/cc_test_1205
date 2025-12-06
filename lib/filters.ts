@@ -115,6 +115,66 @@ Only include fields where the user explicitly specifies criteria. If query is ge
 }
 
 /**
+ * Helper: Get annual fee value from card, checking multiple possible field names
+ */
+function getAnnualFeeValue(card: any): string | number | null {
+  // Check all possible field name variations for annual fee
+  const possibleFields = [
+    'annual_fee',
+    'annualFee',
+    'Annual Fee',
+    'AnnualFee',
+    'annual_fee_score',
+    'annualFeeScore',
+    'fee',
+    'Fee',
+    'yearly_fee',
+    'yearlyFee',
+  ];
+
+  for (const field of possibleFields) {
+    if (card[field] !== undefined && card[field] !== null && String(card[field]).trim() !== '') {
+      return card[field];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper: Check if card has no annual fee
+ */
+function hasNoAnnualFee(card: any): boolean {
+  const feeValue = getAnnualFeeValue(card);
+
+  if (feeValue === null) {
+    console.log(`[FILTER DEBUG] Card ${card.credit_card_name || card.id}: No annual fee field found`);
+    return false; // If we can't find the field, don't include it
+  }
+
+  // Check if it's a number
+  if (typeof feeValue === 'number') {
+    const isNoFee = feeValue === 0;
+    console.log(`[FILTER DEBUG] Card ${card.credit_card_name || card.id}: fee=${feeValue} (number), isNoFee=${isNoFee}`);
+    return isNoFee;
+  }
+
+  // Check if it's a string that represents $0
+  const feeString = String(feeValue).toLowerCase().trim();
+  const isNoFee = feeString === '$0' ||
+                  feeString === '0' ||
+                  feeString === 'none' ||
+                  feeString === 'no annual fee' ||
+                  feeString === '$0 annual fee' ||
+                  feeString === 'free' ||
+                  feeString === '$0.00' ||
+                  !!feeString.match(/^\$?0+(\.0+)?$/); // Matches $0, 0, $0.00, etc. (!! converts to boolean)
+
+  console.log(`[FILTER DEBUG] Card ${card.credit_card_name || card.id}: fee="${feeString}" (string), isNoFee=${isNoFee}`);
+  return isNoFee;
+}
+
+/**
  * Applies filters to a list of credit cards
  */
 export function applyFilters(cards: any[], filters: CardFilters): any[] {
@@ -126,44 +186,71 @@ export function applyFilters(cards: any[], filters: CardFilters): any[] {
   let filteredCards = cards;
   const initialCount = cards.length;
 
+  // Log available fields from first card for debugging
+  if (cards.length > 0) {
+    const sampleCard = cards[0];
+    const allFields = Object.keys(sampleCard);
+    console.log('[FILTER DEBUG] Available fields in cards:', allFields.filter(f => f.toLowerCase().includes('fee')));
+  }
+
   // Filter by annual fee
   if (filters.annualFee === 'no-fee') {
-    filteredCards = filteredCards.filter(card => {
-      const annualFeeScore = card.annual_fee_score;
-      if (annualFeeScore !== undefined && annualFeeScore !== null) {
-        const score = typeof annualFeeScore === 'string' ? parseFloat(annualFeeScore) : Number(annualFeeScore);
-        return !isNaN(score) && score === 0;
-      }
-
-      // Fallback to annual_fee field
-      const annualFee = String(card.annual_fee || '').toLowerCase().trim();
-      return annualFee === '$0' || annualFee === '0' || annualFee === 'none' ||
-             annualFee === 'no annual fee' || annualFee === '$0 annual fee';
-    });
+    console.log('[FILTER] Filtering for no-fee cards...');
+    filteredCards = filteredCards.filter(card => hasNoAnnualFee(card));
     console.log(`[FILTER] Annual fee = no-fee: ${initialCount} → ${filteredCards.length} cards`);
   } else if (filters.annualFee === 'low-fee') {
+    console.log('[FILTER] Filtering for low-fee cards...');
     filteredCards = filteredCards.filter(card => {
-      const annualFeeScore = card.annual_fee_score;
-      if (annualFeeScore !== undefined && annualFeeScore !== null) {
-        const score = typeof annualFeeScore === 'string' ? parseFloat(annualFeeScore) : Number(annualFeeScore);
-        return !isNaN(score) && score <= 1; // Score 0-1 is low fee
+      const feeValue = getAnnualFeeValue(card);
+
+      if (feeValue === null) {
+        return true; // Keep if we can't determine fee
       }
-      return true; // Keep if no score available
+
+      // Try to parse as number
+      let feeNumber: number;
+      if (typeof feeValue === 'number') {
+        feeNumber = feeValue;
+      } else {
+        // Extract number from string like "$95" or "95"
+        const match = String(feeValue).match(/\$?(\d+(?:\.\d+)?)/);
+        if (!match) {
+          return true; // Keep if we can't parse
+        }
+        feeNumber = parseFloat(match[1]);
+      }
+
+      return feeNumber <= 100; // Low fee is <= $100
     });
     console.log(`[FILTER] Annual fee = low-fee: ${initialCount} → ${filteredCards.length} cards`);
   }
 
   // Filter by max annual fee
   if (filters.annualFeeMax !== undefined) {
+    console.log(`[FILTER] Filtering for annual fee max $${filters.annualFeeMax}...`);
     filteredCards = filteredCards.filter(card => {
-      const annualFee = String(card.annual_fee || '').trim();
-      const match = annualFee.match(/\$(\d+)/);
-      if (match) {
-        const fee = parseInt(match[1], 10);
-        return fee <= filters.annualFeeMax!;
+      const feeValue = getAnnualFeeValue(card);
+
+      if (feeValue === null) {
+        return false; // Exclude if we can't determine fee
       }
-      // If no fee found, assume it passes (might be $0)
-      return annualFee.toLowerCase().includes('no') || annualFee === '$0';
+
+      // Try to parse as number
+      let feeNumber: number;
+      if (typeof feeValue === 'number') {
+        feeNumber = feeValue;
+      } else {
+        // Extract number from string like "$95" or "95"
+        const match = String(feeValue).match(/\$?(\d+(?:\.\d+)?)/);
+        if (!match) {
+          // If no number found, check if it's explicitly $0
+          const feeString = String(feeValue).toLowerCase().trim();
+          return feeString === '$0' || feeString === '0' || feeString === 'none' || feeString === 'free';
+        }
+        feeNumber = parseFloat(match[1]);
+      }
+
+      return feeNumber <= filters.annualFeeMax!;
     });
     console.log(`[FILTER] Annual fee max $${filters.annualFeeMax}: ${initialCount} → ${filteredCards.length} cards`);
   }

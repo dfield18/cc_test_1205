@@ -2590,13 +2590,27 @@ export default function Home() {
       }
       
       const hasValidRecommendations = data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0;
-      console.log('API Response data:', { 
-        hasRecommendations: hasValidRecommendations, 
+      console.log('API Response data:', {
+        hasRecommendations: hasValidRecommendations,
         recommendationsCount: data.recommendations?.length || 0,
         recommendations: data.recommendations,
         summary: data.summary,
         title: data.title
       });
+
+      // ============================================================
+      // Browser Console Logging for Debugging
+      // ============================================================
+      if (data.metadata) {
+        console.log(`
+🤖 CHATBOT EXECUTION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Step: ${data.metadata.step} - ${data.metadata.stepName}
+Used Web Search: ${data.metadata.usedWebSearch ? '✅ YES' : '❌ NO'}
+Reason: ${data.metadata.reason || 'N/A'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        `.trim());
+      }
       
       // Update the user message with summary
       const updatedUserMessages = newMessages.map((msg, idx) => {
@@ -2847,13 +2861,27 @@ export default function Home() {
       }
       
       const hasValidRecommendations = data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0;
-      console.log('API Response data:', { 
-        hasRecommendations: hasValidRecommendations, 
+      console.log('API Response data:', {
+        hasRecommendations: hasValidRecommendations,
         recommendationsCount: data.recommendations?.length || 0,
         recommendations: data.recommendations,
         summary: data.summary,
         title: data.title
       });
+
+      // ============================================================
+      // Browser Console Logging for Debugging
+      // ============================================================
+      if (data.metadata) {
+        console.log(`
+🤖 CHATBOT EXECUTION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Step: ${data.metadata.step} - ${data.metadata.stepName}
+Used Web Search: ${data.metadata.usedWebSearch ? '✅ YES' : '❌ NO'}
+Reason: ${data.metadata.reason || 'N/A'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        `.trim());
+      }
       
       // Update the user message with summary
       const updatedUserMessages = newMessages.map((msg, idx) => {
