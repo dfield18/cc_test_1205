@@ -1839,14 +1839,30 @@ CRITICAL REQUIREMENTS FOR EACH CARD'S REASON:
 - If multiple cards have rewards, use the SPECIFIC rate (e.g., "3x points on travel" not "competitive rewards")
 - Make each description feel like it was written specifically for that ONE card, not a template
 - Vary your language - use different verbs, adjectives, and sentence structures for each card (e.g., "Earns", "Offers", "Provides", "Features", "Includes", "Delivers")
-- Focus on DIFFERENT features for each card - if Card 1 mentions rewards rate, Card 2 should mention a different feature like perks, fees, or target audience
 
-CRITICAL: When multiple cards share a common feature (like "no annual fee"), DO NOT repeat that shared feature in every description or connecting sentence. Instead:
-- Card 1: Focus on its MOST DISTINCTIVE feature in the description (e.g., "Up to 15% cash back at partner merchants"), then add a unique connecting sentence (e.g., "This card stands out for its exceptional cash back rate at select merchants, making it ideal if you shop at their partner stores regularly.")
-- Card 2: Focus on a DIFFERENT distinctive feature (e.g., "Helps build credit with responsible use reporting"), then add a different connecting sentence (e.g., "This card is designed specifically for building or rebuilding credit, reporting your payment history to all three major credit bureaus.")
-- Card 3: Focus on yet ANOTHER unique aspect (e.g., "Cash back rewards with transparent credit building features"), then add yet another different connecting sentence (e.g., "This card offers a unique approach to credit building with cash back rewards and clear, upfront terms that help you understand your progress.")
-- The shared feature (like "no annual fee") should be mentioned at most ONCE in the preface, NOT in each card description or connecting sentence
-- Each description AND connecting sentence must highlight what makes THAT SPECIFIC CARD unique, not what it shares with others
+CRITICAL - STAYING RELEVANT TO THE USER'S QUESTION:
+- ALL card descriptions must directly address the user's specific question or need
+- If the user asks about "cash back", ALL three cards must highlight their cash back features
+- If the user asks about "travel rewards", ALL three cards must highlight their travel benefits
+- Focus on DIFFERENT ASPECTS of the relevant feature, NOT completely different unrelated features
+- WRONG: User asks about cash back → Card 1 mentions cash back, Card 2 mentions lounge access, Card 3 mentions credit building
+- CORRECT: User asks about cash back → Card 1 mentions 6% on groceries, Card 2 mentions 5% on rotating categories, Card 3 mentions flat 2% on everything
+
+EXAMPLES OF PROPER DIFFERENTIATION:
+
+Example 1 - User asks "best cash back cards":
+- Card 1: "Earns 6% cash back at U.S. supermarkets and select streaming services" (high rate on specific categories)
+- Card 2: "Offers 5% cash back on rotating quarterly categories" (different category structure)
+- Card 3: "Provides flat 2% cash back on all purchases with no annual fee" (different approach - simplicity)
+
+Example 2 - User asks "no annual fee cards":
+- Card 1: "Up to 15% cash back at partner merchants with no annual fee" (distinctive feature: exceptional cash back rate)
+- Card 2: "Helps build credit with responsible use reporting and no annual fee" (distinctive feature: credit building focus)
+- Card 3: "Cash back rewards with transparent credit building features and no annual fee" (distinctive feature: transparency)
+
+Notice: In Example 1, ALL cards focus on cash back (the user's question). In Example 2, the shared feature is mentioned in each description, then each highlights a different distinctive feature.
+
+- Each description AND connecting sentence must highlight what makes THAT SPECIFIC CARD unique while staying relevant to the user's question
 - Vary the structure, focus, and wording of both the description and connecting sentence for each card
 
 CRITICAL: You MUST select exactly 3 cards from the candidates. If there are fewer than 3 candidate cards, select all available cards. If there are more than 3, select the best 3. The "cards" array in your JSON response MUST contain exactly 3 cards (no exceptions).
