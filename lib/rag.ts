@@ -1926,40 +1926,37 @@ CRITICAL FORMAT REQUIREMENTS - READ CAREFULLY:
 ═══════════════════════════════════════════════════════════════════════════════
 
 YOU MUST FOLLOW THIS EXACT FORMAT FOR EACH CARD:
-- **[Card Name](url)** - description (5-15 words). [Connecting sentence - at least 5 words]
+- **[Card Name](url)** - brief feature description. Why this card works for you.
 
 REQUIREMENTS:
 1. ALWAYS use markdown link format: **[Card Name](url)** - NEVER plain text
-2. ALWAYS include a connecting sentence (at least 5 words) after each description
-3. Each description and connecting sentence MUST be unique - never repeat phrases
+2. Two sentences per card:
+   a) First sentence: Brief description of card's KEY feature (5-15 words)
+   b) Second sentence: WHY this helps the user (different angle for each card)
+3. DO NOT repeat text - second sentence must ADD new information
 4. If cards share a feature (like "no annual fee"), mention it ONLY in the preface
 
-WRONG FORMAT (DO NOT DO THIS):
-- Firstcard® Secured Credit Builder Card with Cashback - Up to 15% cash back
-- BankAmericard® Secured - No annual fee
-- Petal 1 "No Annual Fee" Visa - No annual fee
+WRONG - Repeats description:
+- **[Card](url)** - 8x points on travel. This is ideal for 8x points on travel..
 
-CORRECT FORMAT (DO THIS):
-- **[Firstcard® Secured Credit Builder Card](url)** - Up to 15% cash back at partner merchants. This card stands out for its exceptional cash back rate at select merchants, making it ideal if you shop at their partner stores regularly.
-- **[BankAmericard® Secured](url)** - Helps build credit with responsible use reporting. This card is designed specifically for building or rebuilding credit, reporting your payment history to all three major credit bureaus.
-- **[Petal 1 "No Annual Fee" Visa](url)** - Cash back rewards with transparent credit building features. This card offers a unique approach to credit building with cash back rewards and clear, upfront terms that help you understand your progress.
+CORRECT - Adds new value:
+- **[Card](url)** - 8x points on travel and 3x on business purchases. Perfect for frequent business travelers who can maximize both categories.
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-Create a markdown-formatted response with this EXACT structure (YOU MUST FOLLOW THIS FORMAT EXACTLY):
+Create a markdown-formatted response with this structure:
 
-1. ONE sentence preface that introduces the recommendations (acknowledge the user's question/need)
+1. ONE sentence preface acknowledging the user's question
 2. Blank line
-3. Three cards, each on its own line with this EXACT format:
-   - **[Card Name](url)** - brief description (5-15 words). [ONE unique sentence (at least 5 words) that connects this specific card to the user's question in a different way than the other cards]
+3. Three cards, each on its own line:
+   - **[Card Name](url)** - Feature description. Why it works for the user.
 
-CRITICAL FORMAT REQUIREMENTS:
-- Each card line MUST start with "- **" followed by the card name in markdown link format
-- Each card MUST have a description (5-15 words) after the link
-- Each card MUST have a connecting sentence (at least 5 words) after the description, separated by a period
-- The connecting sentence MUST reference the user's question but in a unique way for each card
-- DO NOT use plain text card names - always use markdown link format: **[Card Name](url)**
-- DO NOT skip the connecting sentence - it is REQUIRED for each card
+CRITICAL RULES:
+- Second sentence MUST provide NEW information (don't repeat the first sentence)
+- Each card's second sentence must take a DIFFERENT angle
+- Examples of different angles: who it's best for, when to use it, what makes it unique
+- NO generic phrases like "This option is ideal for cardholders who prioritize"
+- Be SPECIFIC and CONCRETE
 
 EXAMPLE FORMAT:
 Based on your travel needs, here are three credit cards that could work well for you.
