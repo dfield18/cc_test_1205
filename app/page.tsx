@@ -2395,7 +2395,7 @@ export default function Home() {
   useEffect(() => {
     if (hasInitialCartoonRef.current) return; // Already fetched initial cartoon
 
-    const fetchCartoon = async () => {
+    const fetchCartoon = async (retryCount = 0) => {
       try {
         // Get current shown cartoons from ref (always has latest value)
         const currentShown = shownCartoonsRef.current;
@@ -2404,11 +2404,12 @@ export default function Home() {
         const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const deviceType = isMobile ? 'mobile' : 'desktop';
 
-        console.log(`[Cartoon] Detected device type: ${deviceType} (width: ${window.innerWidth}px)`);
+        console.log(`[Cartoon] Detected device type: ${deviceType} (width: ${window.innerWidth}px, attempt ${retryCount + 1})`);
         console.log(`[Cartoon] Loading from folder: ${deviceType === 'mobile' ? 'mobile' : 'desktop'}`);
 
         // Build query parameter with shown cartoons and device type
-        const shownParam = currentShown.length > 0
+        // On retry, clear shown cartoons to get ANY cartoon
+        const shownParam = (currentShown.length > 0 && retryCount === 0)
           ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
           : '';
 
@@ -2440,12 +2441,25 @@ export default function Home() {
           });
           console.log('[Cartoon] Initial cartoon set successfully');
         } else {
-          console.error('[Cartoon] Failed to load initial cartoon - no imageUrl provided');
-          hasInitialCartoonRef.current = true; // Still mark as attempted to avoid retry loop
+          // No imageUrl - retry up to 3 times
+          if (retryCount < 3) {
+            console.warn(`[Cartoon] No imageUrl, retrying... (attempt ${retryCount + 1}/3)`);
+            setTimeout(() => fetchCartoon(retryCount + 1), 1000 * (retryCount + 1));
+          } else {
+            console.error('[Cartoon] Failed to load initial cartoon after 3 retries');
+            hasInitialCartoonRef.current = true; // Mark as attempted to avoid infinite retry
+          }
         }
       } catch (error) {
         console.error('[Cartoon] Error fetching initial cartoon:', error);
-        hasInitialCartoonRef.current = true; // Mark as attempted even on error
+        // Retry on error up to 3 times
+        if (retryCount < 3) {
+          console.warn(`[Cartoon] Error occurred, retrying... (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => fetchCartoon(retryCount + 1), 1000 * (retryCount + 1));
+        } else {
+          console.error('[Cartoon] Failed to load initial cartoon after 3 retries due to errors');
+          hasInitialCartoonRef.current = true; // Mark as attempted even on error
+        }
       }
     };
 
@@ -2472,11 +2486,12 @@ export default function Home() {
           const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           const deviceType = isMobile ? 'mobile' : 'desktop';
 
-          console.log(`[Cartoon] Loading new cartoon - Device: ${deviceType} (width: ${window.innerWidth}px)`);
+          console.log(`[Cartoon] Loading new cartoon - Device: ${deviceType} (width: ${window.innerWidth}px, attempt ${retryCount + 1})`);
           console.log(`[Cartoon] Loading from folder: ${deviceType === 'mobile' ? 'mobile' : 'desktop'}`);
 
           // Build query parameter with shown cartoons and device type
-          const shownParam = currentShown.length > 0
+          // On retry, clear shown cartoons to get ANY cartoon
+          const shownParam = (currentShown.length > 0 && retryCount === 0)
             ? `&shown=${encodeURIComponent(JSON.stringify(currentShown))}`
             : '';
 
@@ -2507,13 +2522,23 @@ export default function Home() {
             });
             console.log('[Cartoon] New cartoon set successfully');
           } else {
-            // If no imageUrl in response, keep current cartoon (don't clear it)
-            console.warn('[Cartoon] No new cartoon available, keeping current cartoon visible');
+            // No imageUrl - retry up to 2 times
+            if (retryCount < 2) {
+              console.warn(`[Cartoon] No new cartoon available, retrying... (attempt ${retryCount + 1}/2)`);
+              setTimeout(() => fetchCartoon(retryCount + 1), 1000);
+            } else {
+              console.warn('[Cartoon] No new cartoon available after retries, keeping current cartoon visible');
+            }
           }
         } catch (error) {
           console.error('[Cartoon] Error fetching new cartoon:', error);
-          // On error, keep the current cartoon visible - don't clear it
-          console.log('[Cartoon] Keeping current cartoon due to fetch error');
+          // Retry on error up to 2 times
+          if (retryCount < 2) {
+            console.warn(`[Cartoon] Error occurred, retrying... (attempt ${retryCount + 1}/2)`);
+            setTimeout(() => fetchCartoon(retryCount + 1), 1000);
+          } else {
+            console.log('[Cartoon] Keeping current cartoon due to persistent fetch errors');
+          }
         }
       };
       fetchCartoon();
@@ -3809,8 +3834,19 @@ Reason: ${data.metadata.reason || 'N/A'}
                             className="max-w-full max-h-full object-contain"
                             style={{ transform: 'scale(1.2)' }}
                             onError={(e) => {
+                              console.error('[Cartoon] Failed to load image:', currentCartoon.imageUrl);
                               const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
+                              // Try to reload the image once after a short delay
+                              if (!target.dataset.retried) {
+                                target.dataset.retried = 'true';
+                                setTimeout(() => {
+                                  target.src = currentCartoon.imageUrl + '?retry=' + Date.now();
+                                }, 1000);
+                              } else {
+                                // After retry fails, hide the broken image
+                                console.error('[Cartoon] Image failed to load after retry');
+                                target.style.display = 'none';
+                              }
                             }}
                           />
                         </div>
@@ -4408,8 +4444,19 @@ Reason: ${data.metadata.reason || 'N/A'}
                         alt="Loading cartoon"
                         className="max-w-full max-h-full object-contain drop-shadow-lg scale-[0.8]"
                         onError={(e) => {
+                          console.error('[Cartoon] Mobile - Failed to load image:', currentCartoon.imageUrl);
                           const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
+                          // Try to reload the image once after a short delay
+                          if (!target.dataset.retried) {
+                            target.dataset.retried = 'true';
+                            setTimeout(() => {
+                              target.src = currentCartoon.imageUrl + '?retry=' + Date.now();
+                            }, 1000);
+                          } else {
+                            // After retry fails, hide the broken image
+                            console.error('[Cartoon] Mobile - Image failed to load after retry');
+                            target.style.display = 'none';
+                          }
                         }}
                       />
                     </div>
@@ -4540,8 +4587,19 @@ Reason: ${data.metadata.reason || 'N/A'}
                                 alt="Loading cartoon"
                                 className="max-w-full max-h-64 object-contain"
                                 onError={(e) => {
+                                  console.error('[Cartoon] Loading state - Failed to load image:', currentCartoon.imageUrl);
                                   const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
+                                  // Try to reload the image once after a short delay
+                                  if (!target.dataset.retried) {
+                                    target.dataset.retried = 'true';
+                                    setTimeout(() => {
+                                      target.src = currentCartoon.imageUrl + '?retry=' + Date.now();
+                                    }, 1000);
+                                  } else {
+                                    // After retry fails, hide the broken image
+                                    console.error('[Cartoon] Loading state - Image failed to load after retry');
+                                    target.style.display = 'none';
+                                  }
                                 }}
                               />
                             </div>
@@ -4569,8 +4627,19 @@ Reason: ${data.metadata.reason || 'N/A'}
                                 alt="Cartoon"
                                 className="max-w-full max-h-64 object-contain"
                                 onError={(e) => {
+                                  console.error('[Cartoon] Initial load - Failed to load image:', currentCartoon.imageUrl);
                                   const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
+                                  // Try to reload the image once after a short delay
+                                  if (!target.dataset.retried) {
+                                    target.dataset.retried = 'true';
+                                    setTimeout(() => {
+                                      target.src = currentCartoon.imageUrl + '?retry=' + Date.now();
+                                    }, 1000);
+                                  } else {
+                                    // After retry fails, hide the broken image
+                                    console.error('[Cartoon] Initial load - Image failed to load after retry');
+                                    target.style.display = 'none';
+                                  }
                                 }}
                               />
                             </div>
