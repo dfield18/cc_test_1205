@@ -624,7 +624,7 @@ IMPORTANT:
       model: CHAT_MODEL,
       messages: messages,
       temperature: 0.3,
-      max_tokens: 600,
+      max_tokens: 800, // Increased to ensure complete card information doesn't get cut off
       response_format: { type: 'json_object' },
     });
     
@@ -1018,7 +1018,7 @@ Return JSON: {"summary": "your 1-3 sentence markdown-formatted answer", "uncerta
       model: CHAT_MODEL,
       messages: messages,
       temperature: 0.3,
-      max_tokens: 200,
+      max_tokens: 400, // Increased to ensure complete sentences don't get cut off
       response_format: { type: 'json_object' },
     });
 
@@ -2118,7 +2118,7 @@ Return JSON with the formatted markdown summary.`;
       model: CHAT_MODEL,
       messages: messages,
       temperature: 0.5, // Higher temperature for more varied, conversational responses
-      max_tokens: 1200, // Increased to accommodate longer markdown-formatted responses with connecting sentences
+      max_tokens: 2500, // Increased to prevent text cutoff - allows complete card descriptions with connecting sentences
       response_format: { type: 'json_object' },
     });
     
